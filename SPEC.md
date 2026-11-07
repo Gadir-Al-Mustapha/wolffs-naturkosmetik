@@ -1,128 +1,181 @@
 # SPEC.md – Wolff's Naturkosmetik (K6)
 
-**Version:** 1.0 – Arbeitsfassung nach Meeting 1  
+**Version:** 2.0 – überarbeitet nach Meeting 1 und Meeting 2  
 **Stand:** 07.11.2026  
-**Kundin:** Nina Wolff  
-**Quellengrundlage:** eigenes Kundeninterview, Meeting 1, Antworten **M1-A1 bis M1-A12** (12 Nachrichten).  
-**Status:** Noch **nicht final**. Offene Details und Modellannahmen sind in Meeting 2 zu prüfen.
+**Kundin:** Nina Wolff (K6 – Wolff's Naturkosmetik)  
+**Grundlage:** Eigenes Interview mit K6; **Meeting 1: M1-A1 bis M1-A12 (12 Nachrichten)**, **Meeting 2: M2-A1 bis M2-A8 (8 Nachrichten)**, insgesamt 20 Nachrichten im selben Kundenchat.  
+**Status:** Anforderungsmodell zur Abgabe; verbleibende fachliche Unklarheiten stehen ausdrücklich in Abschnitt 8.
 
-## 1. Ausgangssituation und Ziel
+## 1. Geschäftskontext, Problem und Ziel
 
-Nina Wolff verkauft Naturkosmetik bisher überwiegend über Instagram-Direktnachrichten. Sie verwaltet Produkte, Chargen und Bestellungen manuell in Excel und überprüft Zahlungen selbst. Dabei entstehen Fehler bei Preisen, Rabatten, Beständen und Versand. Wiederverkäufer erhalten gesonderte Konditionen. Die App soll diese Abläufe nachvollziehbar abbilden und vermeidbare manuelle Arbeit reduzieren. **Belege:** M1-A1, A2, A4, A6, A10.
+Nina Wolff produziert und verkauft Naturkosmetik, vor allem über Instagram-Direktnachrichten. Produktpreise, Lagerbestände und Bestellungen werden manuell bzw. in Excel geführt; Rezepturen liegen zum Teil handschriftlich vor. Zahlungen, Versand und Kundenkommunikation erfordern viele Einzelschritte. Das führt zu falschen Preisen, vergessenen Rabatten oder Versandkosten, ungenauen Beständen und verspäteten Zahlungskontrollen. Neben Privatkundinnen (B2C) beliefert Nina Wiederverkäufer (B2B) mit individuellen Konditionen. Beim Verpacken helfen ihre Mutter und Jessi. **Belege:** M1-A1, A2, A4–A6, A9–A10.
 
-**Ziel für die erste Version (v1):** Bestellungen mit Positionen, Kundenarten, Preis- und Versandlogik, chargenbezogenem Bestand, Inhaltsstoffinformationen sowie Zahlungs- und Übergabestatus verwalten. Die genaue Ausgestaltung wird nach Meeting 2 präzisiert.
+**Ziel:** Die App soll den Weg von der Bestellung bis zur Zahlung und Übergabe nachvollziehbar unterstützen. Besonders wichtig sind korrekte Preis- und Versandentscheidungen, die Zuordnung zu konkreten Produktchargen, eine nachvollziehbare Allergenbestätigung, Zahlungsüberwachung sowie rollenabhängige Arbeitsansichten. **Belege:** M1-A1–A10; M2-A2–A8.
+
+**Abgrenzung:** Diese SPEC beschreibt das **fachliche Anforderungsmodell (ER-Modell-Ebene)**, nicht bereits Datenbanktabellen, Programmiersprache, Layouts oder Schnittstellen. Technische IDs und optionale Statusbezeichnungen sind **Modellierungsvorschläge** und keine wörtlichen Aussagen von Nina.
 
 ## 2. Entitäten (8) und Attribute
 
-Die Schlüssel sind eindeutige Identifikatoren des jeweiligen Datentyps. Vorgeschlagene technische IDs sind **Modellierungsentscheidungen**, keine wörtlichen Kundenangaben.
+Jede Entität steht für einen identifizierbaren Datentyp des Geschäfts. Der fett markierte Schlüssel identifiziert einzelne Datensätze eindeutig; Umfang jeweils 3–5 Attribute.
 
-| Nr. | Entität | Attribute (Schlüssel fett) | Beleg |
+| Nr. | Entität | Attribute (Schlüssel fett) | Fachliche Begründung / Belege |
 |---|---|---|---|
-| E1 | **Kunde** | **kunden_id**, name, kundenart (B2C/B2B), ist_stammkundin, b2b_rabatt_prozent (optional) | M1-A1, A2, A6 |
-| E2 | **Produkt** | **produkt_id**, bezeichnung, standardpreis_eur, verfuegbarkeitsstatus | M1-A1, A2, A4 |
-| E3 | **Charge** | **charge_id**, produkt_id, herstellungsdatum, mindesthaltbarkeitsdatum, bestand_stueck | M1-A4, A5 |
-| E4 | **Inhaltsstoff** | **inhaltsstoff_id**, bezeichnung, potentiell_allergen, hinweistext | M1-A1, A5 |
-| E5 | **Bestellung** | **bestellung_id**, kunden_id, bestellzeitpunkt, bestellstatus, gesamtbetrag_eur | M1-A1–A3, A10 |
-| E6 | **Bestellposition** | **position_id**, bestellung_id, produkt_id, anzahl, einzelpreis_eur | M1-A1, A2, A7 |
-| E7 | **Zahlung** | **zahlung_id**, bestellung_id, zahlungsart, zahlungsstatus, faellig_am (optional) | M1-A1, A6, A10 |
-| E8 | **Übergabe** | **uebergabe_id**, bestellung_id, uebergabeart (zunächst DHL/Abholung), status, trackingnummer (optional) | M1-A1, A12 |
+| E1 | **Kunde** | **kunden_id**, name, kundenart (B2C/B2B), stammkundenstatus, partnerkondition | Privatkundinnen, Stammkundinnen und Wiederverkäufer erhalten unterschiedliche Konditionen (M1-A1–A3, A6; M2-A4). |
+| E2 | **Produkt** | **produkt_id**, bezeichnung, standardpreis_eur, verfuegbarkeitsstatus | Produkte werden bestellt und können ausverkauft sein; Preise bisher nicht zentral gepflegt (M1-A1, A2, A4). |
+| E3 | **Charge** | **charge_id**, produkt_id, herstellungsdatum, mindesthaltbarkeitsdatum, bestand_stueck | Ein Produkt besitzt mehrere Chargen mit eigenem Bestand und MHD (M1-A4; M2-A7). |
+| E4 | **Inhaltsstoff** | **inhaltsstoff_id**, bezeichnung, potenziell_allergen, hinweistext | Inhaltsstoffe und mögliche Allergene sind chargenbezogen nachzuweisen (M1-A5; M2-A7). |
+| E5 | **Bestellung** | **bestellung_id**, kunden_id, bestellzeitpunkt, bestellstatus, gesamtbetrag_eur | Eine Bestellung verbindet Kundin, Artikel, Kalkulation und Abwicklung (M1-A1–A3, A10; M2-A5–A6). |
+| E6 | **Bestellposition** | **position_id**, bestellung_id, produkt_id, anzahl, vereinbarter_einzelpreis_eur | Eine Bestellung kann mehrere Produkte und Stückzahlen enthalten (M1-A1, A7; M2-A7). |
+| E7 | **Zahlung** | **zahlung_id**, bestellung_id, zahlungsart, zahlungsstatus, faellig_am | Zahlungseingänge, Fristen, Mahnungen und offene Forderungen müssen verfolgt werden (M1-A10; M2-A5–A6). |
+| E8 | **Übergabe** | **uebergabe_id**, bestellung_id, uebergabeart, uebergabestatus, trackingnummer_optional | DHL, persönliche Übergabe und eigene Fahrradlieferung müssen unterschieden werden (M1-A1, A12; M2-A2). |
 
 **Modellhinweise:**
-- E6 erfasst die verschiedenen Produkte und Mengen innerhalb einer Bestellung; die vereinbarten Preise werden bei der Position festgehalten.
-- E4 beschreibt Inhaltsstoffe als wiederverwendbare Objekte. Da Nina Abweichungen zwischen Chargen nennt, muss die **tatsächliche Rezeptur je Charge** berücksichtigt werden (M1-A5).
-- „Übergabe“ ist bewusst ein vorläufiger Oberbegriff: Neben DHL und Abholung sind laut M1-A12 weitere Fälle möglich; diese werden in Meeting 2 geklärt.
-- Rabattcodes und Benutzerrollen sind bisher noch **keine eigenen Entitäten**. Ob sie später gesondert modelliert werden müssen, ist offen.
 
-## 3. Beziehungen (8)
+- `partnerkondition` bei **Kunde** ist zunächst ein fachlicher Platzhalter für individuelle B2B-Preise/Rabatte, nicht die Entscheidung für ein einzelnes Datenbankfeld. Je Partner wurden z. B. 15 % oder 20 % genannt. **Beleg:** M1-A6.
+- Der Bestand wird **pro Charge** und nicht nur als globale Produktzahl geführt. Die verfügbare Menge des Produkts lässt sich daraus ableiten. **Belege:** M1-A4; M2-A7.
+- Die **Bestellposition–Charge-Zuordnung** und die **tatsächliche Rezeptur pro Charge** werden zunächst als Beziehungen mit eigenen Angaben beschrieben (Abschnitt 3); sie benötigen fachlich keine neunte Entität in dieser Modellstufe.
+- **Abo-Box / Abonnement** ist eine in Meeting 2 ausdrücklich bestätigte Erweiterungsanforderung (Abschnitt 7). Ob dafür später ein eigener Entitätstyp ergänzt wird, gehört in die nächste Modellierungsstufe und wird nicht als neunte Kernentität ausgegeben.
 
-Die Kardinalitäten bezeichnen, wie viele Objekte jeweils zugeordnet sein können. Wo der Kunde keine eindeutige Aussage machte, sind sie **vorläufige Modellannahmen**, die nachzufragen sind.
+## 3. Beziehungen (9) mit Kardinalitäten
 
-| Nr. | Beziehung und Kardinalität | Bedeutung | Beleg / Sicherheit |
+`1:n` = ein Datensatz steht mit mehreren anderen in Beziehung. `n:m` = auf beiden Seiten sind mehrere Zuordnungen möglich. Wo Nina die Anzahl nicht festgelegt hat, wird die gewählte Kardinalität als **Modellannahme** gekennzeichnet.
+
+| Nr. | Beziehung | Kardinalität | Bedeutung / Zuordnungsangaben | Belege und Status |
+|---|---|---|---|---|
+| B1 | Kunde – Bestellung | **1:n** | Ein Kunde kann mehrere Bestellungen tätigen; eine Bestellung gehört zu einem Kunden. | M1-A1, A6; naheliegende Modellannahme |
+| B2 | Bestellung – Bestellposition | **1:n** | Eine Bestellung enthält eine oder mehrere Positionen. | M1-A1, A7; Modellannahme |
+| B3 | Produkt – Bestellposition | **1:n** | Ein Produkt kann in vielen Bestellpositionen vorkommen; eine Position benennt ein Produkt. | M1-A1, A7; Modellannahme |
+| B4 | Produkt – Charge | **1:n** | Ein Produkt besitzt mehrere Produktionschargen; eine Charge gehört zu einem Produkt. | M1-A4; bestätigt |
+| B5 | Produkt – Inhaltsstoff (Grundrezeptur) | **n:m** | Ein Produkt kann viele Inhaltsstoffe enthalten; ein Inhaltsstoff in mehreren Produkten vorkommen. | M1-A5; fachlich abgeleitet |
+| B6 | Charge – Inhaltsstoff (Ist-Rezeptur) | **n:m** | Je Charge wird die tatsächlich verwendete Zusammensetzung erfasst, auch bei Substitutionen. | M1-A5, M2-A7; bestätigt im Grundsatz |
+| B7 | Bestellposition – Charge | **n:m** | Eine Position kann aus mehreren Chargen erfüllt werden; eine Charge kann mehrere Positionen bedienen. **Beziehungsattribut: zugeordnete_menge**. | M2-A7; ausdrücklich bestätigt |
+| B8 | Bestellung – Zahlung | **1:0..1** | Einer Bestellung wird vorerst ein Zahlungsvorgang mit Status und Fälligkeit zugeordnet. | M1-A10, M2-A5–A6; **Annahme: keine Teilzahlungen** |
+| B9 | Bestellung – Übergabe | **1:0..1** | Eine Bestellung erhält eine Übergabeart und einen entsprechenden Status. | M1-A1, A12, M2-A2; **Annahme: eine Übergabe je Bestellung** |
+
+**Abgeleitete n:m-Beziehung:** **Bestellung n:m Produkt** entsteht über die **Bestellposition** (B2 + B3). Damit sind sowohl die direkte Chargenzuordnung (B7) als auch die notwendige n:m-Beziehung fachlich abgedeckt.
+
+**Dokumentation der Allergenbestätigung:** Bezogen auf die konkrete Bestellung und jede ihr über B7 zugewiesene Charge soll festgehalten werden, **welche Chargeninformationen welcher Kunde aktiv bestätigt hat und wann**. Die Bestätigung ist ein fachlicher Vorgang/Beziehungsnachweis; das endgültige technische Speichermodell bleibt offen. **Belege:** M1-A5; M2-A7.
+
+## 4. Business Rules – genau fünf zentrale Regelkomplexe
+
+Die folgenden fünf **BR** sind die zentralen, aus dem Interview abgeleiteten Geschäftsregelkomplexe. Weitere Arbeitsabläufe und Berechtigungen stehen getrennt in Abschnitt 5, ohne neue BR-Nummern.
+
+### BR1 – Übergabe und Versandkosten
+
+**Wenn** die Übergabe per **DHL** erfolgt, **dann** gilt:
+
+- **B2B-Partner:** DHL-Versand **immer kostenlos**.
+- **B2C-Stammkundinnen:** DHL-Versand **immer kostenlos**, unabhängig vom Bestellwert.
+- **Andere B2C-Kunden:** **3,90 €**, wenn der **Bestellwert nach allen anwendbaren Rabatten unter 39 €** liegt; bei **mindestens 39 €** kostenlos.
+
+**Wenn** eine Bestellung persönlich übergeben oder von Nina per Fahrrad geliefert wird, **dann** fallen **keine Versandkosten** an. Bei DHL wird eine Trackingnummer geführt; bei persönlicher Übergabe und Fahrradlieferung ist keine DHL-Trackingnummer erforderlich. **Belege:** M1-A2, A6, A12; M2-A2–A4.
+
+**Konkrete Klärung:** Ninas ursprüngliches Beispiel mit Lena (28 € Warenwert, 10 % Stammkundenrabatt) ergibt nach der **später verbindlich festgelegten** Regel **25,20 € ohne DHL-Versandkosten**. Die ältere Beispielrechnung von **29,10 €** aus M1-A3 war nur vor der Regeländerung gültig. **Belege:** M1-A3; M2-A4.
+
+### BR2 – Stammkundenrabatt und Rabattcodes
+
+**Wenn** ein B2C-Kunde als Stammkundin berechtigt ist, **dann** erhält er **10 % Treuerabatt**. Ein Aktions-Rabattcode darf **zusätzlich** gelten, **sofern der jeweilige Code nicht ausdrücklich als „nicht kombinierbar“ markiert ist**. Die Kombinierbarkeit wird **pro Aktion** festgelegt; die App darf nicht situativ zwischen unterschiedlichen Regeln wechseln. **Belege:** M1-A2–A3.
+
+**Noch offen:** Exakte Verrechnungsreihenfolge zweier prozentualer Rabatte und mögliche Mehrfachcodes. Der DHL-Schwellenwert wird jedoch erst **nach** den tatsächlich anwendbaren Rabatten geprüft (BR1, M2-A4).
+
+### BR3 – B2B-Mindestmenge, Partnerkonditionen und Ausnahmen
+
+**Wenn** ein Wiederverkäufer **mindestens 50 Einheiten insgesamt pro Bestellung** bestellt (auch verteilt auf mehrere Produkte), **dann** gilt grundsätzlich sein individueller **B2B-Preis**. **Wenn** die Gesamtmenge **unter 50 Einheiten** liegt, **dann** gilt grundsätzlich der **B2C-Preis**. **Nur Nina** darf die Preisregel bei einer strategischen Ausnahme **aktiv übersteuern**; dafür ist **eine schriftliche Begründung als Pflichtangabe** zu erfassen. Partnerbezogene Preise/Rabatte bleiben individuell. **Belege:** M1-A6–A8.
+
+**Ergänzende B2B-Konditionen:** Für B2B-Partner gelten grundsätzlich **kostenloser Versand** und **30 Tage Zahlungsziel** auf Rechnung. **Belege:** M1-A6, A10; M2-A4–A5. Die Verrechnung eines ausgehandelten B2B-Rabatts mit einem besonderen B2B-Grundpreis muss bei Bedarf noch konkretisiert werden.
+
+### BR4 – Chargenbestände und MHD-basierte Entnahme
+
+**Wenn** für dasselbe Produkt mehrere verfügbare Chargen existieren, **dann** wird **zuerst die Charge mit dem frühesten Mindesthaltbarkeitsdatum (MHD)** entnommen – **nicht zwingend die zuerst hergestellte Charge**. Nina beschreibt das als „MHD-basiert“; fachlich entspricht es dem **FEFO-Prinzip** (First Expired, First Out). Reicht eine Charge nicht aus, darf eine Bestellposition auf **mehrere Chargen** mit jeweiligen Mengen verteilt werden. **Belege:** M1-A4; M2-A7.
+
+**Wenn** eine Charge **weniger als 30 Tage Restlaufzeit bis zum MHD** hat, **dann** wird sie als reduzierter Restposten betrachtet. Die Höhe des Nachlasses und der Umgang mit bereits abgelaufener Ware wurden **nicht** festgelegt. **Beleg:** M1-A4.
+
+### BR5 – Chargenspezifische Allergeninformation und aktive Bestätigung
+
+**Wenn** die tatsächlich für eine Bestellung ausgewählten Chargen potenziell allergene Inhaltsstoffe enthalten, **dann** muss die App **genau deren Inhaltsstoff- und Allergeninformationen vor dem verbindlichen Bestellabschluss** anzeigen. Der Kunde muss **aktiv bestätigen**, dass er die Informationen gelesen hat. Die Bestätigung darf erst erfolgen, **nachdem die betroffenen Chargen zugewiesen sind**; sie ist je Bestellung und zugewiesener Charge nachvollziehbar zu dokumentieren. Bei mehreren Chargen müssen die jeweiligen Unterschiede erkennbar sein. **Belege:** M1-A1, A5; M2-A7.
+
+**Abgrenzung:** Die App dokumentiert die Kenntnisnahme der deklarierten Inhaltsstoffe; sie garantiert damit keine medizinische Verträglichkeit.
+
+## 5. Weitere bestätigte Abläufe und Berechtigungen
+
+Diese Punkte gehören zum fachlichen Prozessmodell, werden aber **nicht als zusätzliche Business Rules gezählt**.
+
+### 5.1 Bestell- und Zahlungsvorgang
+
+| Kundentyp | Packauftrag / Vorbereitung | Versand bzw. Übergabe | Zahlungserinnerung und Folgeprozess | Belege |
+|---|---|---|---|---|
+| **Normale B2C-Kunden** | Erst nach **tatsächlichem Zahlungseingang**; ein Überweisungs-Screenshot reicht nicht. | Erst nach bestätigtem Zahlungseingang. | **Tag 3** ohne Zahlung: freundliche Erinnerung; **Tag 7**: nicht übergebene Bestellung stornieren und Bestand freigeben. | M1-A10; M2-A5 |
+| **B2C-Stammkundinnen** | **Sofort** nach Bestellung möglich, auch ohne Zahlungseingang. | **Erst nach tatsächlichem Zahlungseingang**. | **Tag 5:** Erinnerung; **Tag 10:** nicht übergebene Bestellung stornieren und Bestand freigeben. | M2-A5–A6 |
+| **B2B-Partner** | Ware darf ohne vorherigen Zahlungseingang vorbereitet werden. | Versand vor Geldeingang zulässig; Zahlung auf Rechnung. | **30 Tage Zahlungsziel**; nach Fälligkeit Nina über ausstehende Zahlung informieren. | M1-A6, A10; M2-A5 |
+
+**Wichtige Sonderfallauflösung:** Ist Ware trotz offener Zahlung **bereits an den Kunden übergeben** worden, kann sie **nicht als nicht gelieferte Bestellung storniert und wieder in den verfügbaren Bestand gebucht** werden. Stattdessen bleibt eine **offene Forderung** bestehen, über die Nina mit deutlicher Mahnung informiert wird. Dieser Fall ist insbesondere für Altvorgänge oder fehlerhafte Übergaben relevant. **Beleg:** M2-A6.
+
+**Fachlich getrennte Status:** Zahlungsstatus, Packfreigabe, Verpackungsstatus und tatsächliche Übergabe müssen unterscheidbar sein. Damit bedeutet „gepackt“ nicht automatisch „bezahlt“ oder „versendet“. **Belege:** M2-A5–A6. Eine genaue Statusliste ist eine spätere Modellierungsentscheidung.
+
+### 5.2 Rollen, Einsichten und Verantwortlichkeiten
+
+| Rolle | Darf sehen / tun | Darf nicht sehen / tun | Belege |
 |---|---|---|---|
-| B1 | **Kunde 1 : n Bestellung** | Ein Kunde kann mehrere Bestellungen haben; jede Bestellung gehört einem Kunden. | M1-A1, A6; plausibel |
-| B2 | **Bestellung 1 : n Bestellposition** | Eine Bestellung enthält eine oder mehrere Positionen. | M1-A1, A7; plausibel |
-| B3 | **Produkt 1 : n Bestellposition** | Dasselbe Produkt kann in verschiedenen Bestellungen vorkommen. | M1-A1, A7; plausibel |
-| B4 | **Produkt 1 : n Charge** | Ein Produkt kann in mehreren Produktionschargen vorliegen. | M1-A4; bestätigt |
-| B5 | **Produkt n : m Inhaltsstoff** | Die normale Rezeptur eines Produkts besteht aus mehreren Inhaltsstoffen; ein Inhaltsstoff kann in mehreren Produkten stecken. | M1-A5; plausibel |
-| B6 | **Charge n : m Inhaltsstoff** | Die Inhaltsstoffzusammensetzung kann pro Charge von der Grundrezeptur abweichen. | M1-A5; fachlich begründet, Detailmodell offen |
-| B7 | **Bestellung 1 : 0..1 Zahlung** | Der zugehörige Zahlungsstatus wird einer Bestellung zugeordnet. | M1-A10; **Annahme:** keine Teilzahlungen |
-| B8 | **Bestellung 1 : 0..1 Übergabe** | Eine Bestellung wird versendet oder auf andere Weise übergeben. | M1-A1, A12; **Annahme:** eine Übergabe je Bestellung |
+| **Nina (Inhaberin)** | Vollständige Verwaltungsansicht; Bestellungen annehmen/bestätigen, Preise und Rabatte bestimmen, Zahlungen prüfen, Kunden kontaktieren, Versandetiketten mit Adresse erstellen, B2B-Ausnahmen mit Begründung genehmigen. | – | M1-A8–A9; M2-A8 |
+| **Mutter und Jessi (Packhilfe)** | Reduzierter Packauftrag mit **Paket-/Auftragsnummer, Produkt, Menge und konkreter Charge**; Waren einpacken und **bereits von Nina erstellte/ausgedruckte** Versandetiketten anbringen. | **Keine Kundennamen, Adressen oder Preise** im Packauftrag; keine Preisentscheidung, Kundenkommunikation, Zahlungsprüfung, Etikettenerstellung oder B2B-Ausnahmegenehmigung. | M1-A9; M2-A8 |
 
-**Mindestens eine n:m-Beziehung:** B5 und B6 erfüllen diese Anforderung. Zusätzlich ergibt sich fachlich **Bestellung n:m Produkt**, aufgelöst durch die Entität **Bestellposition** (B2 + B3).
+Die App benötigt fachlich **zwei getrennte Ansichten**: eine reduzierte **Packansicht** und eine vollständige **Verwaltungsansicht**. Automatische Bestellbestätigungen sollen die bisherige manuelle Kommunikation entlasten; **individuelle** Bestell- und Preisentscheidungen bleiben bei Nina. **Belege:** M1-A9; M2-A8.
 
-**Noch zu klären:** Welche **konkrete Charge** erfüllt eine Bestellposition? Ob eine Position auf mehrere Chargen verteilt werden darf, ist aus M1-A4 nicht eindeutig. Diese Zuordnung muss vor der Umsetzung ergänzt werden.
+### 5.3 Bestandsanzeige und Übergabestatus
 
-## 4. Business Rules (5 zentrale Regelkomplexe)
+- Die verfügbare Stückzahl ist aus den chargenbezogenen Beständen und Reservierungen nachvollziehbar zu ermitteln, damit keine ausverkauften Produkte angenommen werden. **Belege:** M1-A4; M2-A5, A7. Die Reservierungslogik selbst ist noch nicht vollständig spezifiziert.
+- Erfüllungsarten sind **DHL**, **persönliches Treffen/Selbstabholung** und **Fahrradlieferung durch Nina**. Bei DHL: Trackingnummer. Bei persönlicher Übergabe: bestätigtes Übergabedatum; bei Fahrradlieferung: Liefer-/Übergabestatus, ohne DHL-Tracking. **Belege:** M1-A1, A12; M2-A2.
 
-Die folgenden fünf Regelkomplexe sind aus Kundenantworten abgeleitet. Einzelheiten ohne ausdrückliche Bestätigung werden nicht als feststehend ausgegeben.
+## 6. Zwei Widersprüche und ihre ausdrückliche Auflösung
 
-**BR1 – Versandkosten nach Kundenart und Bestellwert**  
-Bei **B2C-Bestellungen** werden normalerweise **3,90 €** Versandkosten erhoben; **ab 39 € Bestellwert** ist der Versand kostenlos. Für **B2B-Partner** ist der Versand unabhängig vom Bestellwert kostenlos.  
-**Belege:** M1-A2, A6. **Offen:** Ob der Schwellenwert vor oder nach Rabatten geprüft wird und welche Kosten bei Abholung gelten.
+### W1 – Unklare Kombinierbarkeit von Treuerabatt und Aktionscode
 
-**BR2 – Stammkundenrabatt und Rabattcodes**  
-Berechtigte Stammkundinnen erhalten **10 % Rabatt**. Ein Aktions-Rabattcode kann zusätzlich angewendet werden, **außer der Code ist ausdrücklich als nicht kombinierbar gekennzeichnet**. Die Kombinierbarkeit soll pro Aktion festlegbar sein.  
-**Belege:** M1-A2, A3. **Offen:** Berechnungsreihenfolge mehrerer prozentualer Nachlässe und Anwendung auf Versandkosten.
+- **Frühere Aussagen:** Rabattcodes wurden mit 10 % Stammkundenrabatt teilweise kombiniert und teilweise nicht; eine verlässliche Regel fehlte (M1-A2–A3).
+- **Nachfrage / Entscheidung:** Nina legte fest, dass **10 % Treuerabatt grundsätzlich gelten** und ein Code **zusätzlich** genutzt werden darf, außer die Aktion ist ausdrücklich **nicht kombinierbar** (M1-A3).
+- **Lösung in der SPEC:** Kombinierbarkeit als Merkmal der Rabattaktion vorgeben, nicht ad hoc entscheiden; nach Anwendung der gültigen Rabatte BR1 zur Versandkostenberechnung verwenden. **Offen** bleibt allein die genaue Reihenfolge zweier prozentualer Rabatte.
 
-**BR3 – B2B-Mindestmenge und genehmigte Ausnahme**  
-Der **B2B-Preis gilt ab 50 Einheiten insgesamt je Bestellung**, auch wenn diese aus mehreren Produkten bestehen. Bei **weniger als 50 Einheiten gilt grundsätzlich der B2C-Preis**. Nur **Nina** darf eine Ausnahme ausdrücklich genehmigen; dabei muss ein **Grund als Pflichtangabe** dokumentiert werden. B2B-Konditionen und Rabatte sind partnerindividuell.  
-**Belege:** M1-A6, A7, A8.
+### W2 – B2B-Mindestmenge vs. genehmigte Kulanzbestellung
 
-**BR4 – Chargenreihenfolge und MHD-Sonderfall**  
-Bei mehreren Chargen desselben Produkts sollen die **älteren Chargen zuerst** ausgegeben werden. Bei einer Charge mit **weniger als 30 Tagen Restlaufzeit bis zum MHD** bietet Nina die Ware reduziert als Restposten an. Der aktuelle Bestand soll pro Charge erfasst werden.  
-**Belege:** M1-A4. **Offen:** genaue Vergabelogik nach Herstellungsdatum oder MHD, Höhe des Restpostenrabatts und Umgang mit abgelaufener Ware.
+- **Frühere Aussagen:** B2B-Preise gelten erst ab **50 Einheiten**; Nina berichtete trotzdem von **30 Einheiten zum B2B-Preis** bei einem neuen Wiederverkäufer (M1-A6–A7).
+- **Nachfrage / Entscheidung:** Bei **unter 50 Einheiten** gilt standardmäßig der **B2C-Preis**; Nina selbst darf eine **einmalige, bewusst genehmigte Ausnahme** machen, muss dafür aber einen **Grund dokumentieren** (M1-A8).
+- **Lösung in der SPEC:** Automatischer Standardpreis nach Menge und **protokollierte, nur für Nina freigegebene Ausnahmefunktion mit Pflichtbegründung**. Keine stillschweigende Abweichung.
 
-**BR5 – Aktive Allergenbestätigung**  
-Bei Produkten mit **potenziell allergenen Inhaltsstoffen** müssen die Informationen vor der Bestellung sichtbar sein; der Kunde muss **aktiv bestätigen**, dass er sie gelesen hat, bevor die Bestellung abgeschlossen wird. Chargenabhängige Abweichungen in der Zusammensetzung müssen dokumentierbar sein.  
-**Belege:** M1-A1, A5. **Offen:** genauer Bezug der Bestätigung zur konkret ausgewählten Charge.
+**Zusätzliche Präzisierungen aus Meeting 2 (nicht als weitere Widersprüche gezählt):**
 
-### Weitere bestätigte Prozessangaben (nicht als zusätzliche BR nummeriert)
+- „DHL ist Standard“ bedeutet **nicht** „DHL ist die einzige Übergabeart“; drei Arten wurden konkret genannt (M1-A12; M2-A2).
+- Der zunächst unklare kostenlose Versand für Stammkundinnen ist inzwischen **verbindlich entschieden** und ersetzt die frühere Beispielrechnung (M2-A3–A4).
+- „Packauftrag freigeben“ und „Ware ausliefern“ sind **verschiedene Schritte**; bei Stammkundinnen ist nur ersterer vor Zahlungseingang erlaubt (M2-A5–A6).
 
-- B2B-Partner bezahlen laut Nina **auf Rechnung mit 30 Tagen Zahlungsziel** (M1-A6, A10).
-- Privatkunden senden bislang Überweisungsnachweise per Instagram; der tatsächliche Geldeingang wird teils erst später abgeglichen. Die App soll offene Zahlungen und Zahlungsstatus sichtbar machen (M1-A1, A10).
-- Nina nimmt Bestellungen an, bestätigt Preise und kommuniziert mit Kundinnen. Mutter und Freundin Jessi helfen beim Verpacken und Etikettieren. Sie sollen allenfalls Packaufträge, nicht jedoch Preise oder Kundendaten sehen (M1-A9). Das konkrete Rollenmodell ist noch zu präzisieren.
-- Bei ausverkauften Produkten kam es bislang zu Fehlbestellungen. Verfügbarkeiten müssen im Bestellprozess zuverlässig sichtbar sein (M1-A4).
+## 7. Prioritäten und eine in Meeting 2 bestätigte neue Anforderung
 
-## 5. Widersprüche und Auflösung (2)
-
-**W1 – Rabatte werden uneinheitlich kombiniert**  
-**Aussage/Problem:** Nina hat Rabattcodes und Stammkundenrabatte bisher teilweise zusammen und teilweise alternativ angewendet (M1-A2, A3).  
-**Klärung:** Sie legt in M1-A3 fest: **10 % Stammkundenrabatt gelten grundsätzlich; ein Rabattcode kommt hinzu, sofern er nicht als „nicht kombinierbar“ markiert ist.**  
-**Konsequenz für v1:** Kombinierbarkeit einer Aktion ist explizit zu speichern; die genaue Rechenreihenfolge ist noch offen.
-
-**W2 – B2B-Mindestmenge vs. Kulanzbestellung**  
-**Aussage/Problem:** Zunächst gilt unter **50 Einheiten** der normale B2C-Preis (M1-A6), zugleich berichtet Nina von einem neuen Wiederverkäufer, der einmalig **30 Einheiten zum B2B-Preis** erhielt (M1-A7).  
-**Klärung:** In M1-A8 bestätigt Nina: Die Grundregel wird **automatisch** durchgesetzt; nur **sie selbst** kann mit **pflichtiger Begründung** eine Ausnahme freigeben.  
-**Konsequenz für v1:** Keine stillschweigende Ausnahme; dokumentierte, ausdrücklich genehmigte Übersteuerung.
-
-**Noch nicht als aufgelöster Widerspruch gewertet:** „DHL ist Standard“ gegenüber weiteren Übergabearten (M1-A1, A12). Die konkreten Sonderfälle müssen in Meeting 2 erfragt werden.
-
-## 6. Prioritäten (vorläufig)
-
-| Priorität | Umfang | Grundlage |
+| Einstufung | Umfang | Grundlage / Sicherheit |
 |---|---|---|
-| **v1 / Muss** | Produkte, Kunden, Bestellungen mit Positionen; B2C-/B2B-Preislogik und Ausnahmen; Bestände nach Charge; Inhaltsstoffe und Allergenbestätigung; Zahlungs- und Übergabestatus | M1-A1–A10 |
-| **v1 / zu klären** | Weitere Übergabearten und Bedingungen; Rollen-/Packansicht; konkrete Berechnungsreihenfolge und Zahlungsfreigabe | M1-A3, A9, A10, A12 |
-| **später / vorläufig** | Messebestände; erweiterte B2B-Auswertung; Abo-Box „Self-Care-Monthly“ mit vier Produkten für 39 € monatlich | M1-A8, A11 |
+| **v1 – Muss** | Kunden und Produkte, Bestellungen und Positionen, B2B-/B2C-Konditionen und Rabatte, DHL-/persönliche-/Fahrradübergabe, chargenbezogener Bestand und MHD-Entnahme, Allergenbestätigung pro Charge, getrennte Zahlungs-/Pack-/Übergabestatus, Fristen und Pack-/Verwaltungsrollen. | Kernprozesse und konkrete Entscheidungen: M1-A1–A10, A12; M2-A2–A8 |
+| **Später / Umfang offen** | Messevorräte und erweiterte B2B-Auswertungen. | Zukunfts- und Zusatzwünsche: M1-A8, A11 |
+| **Neue bestätigte Anforderung in Meeting 2** | **Abo-Box „Self-Care-Monthly“** als **Abonnementprozess** für vier Produkte zu **39 € pro Monat**. Nina fordert die Funktion nun ausdrücklich für die App. Ein Abo soll höchstens **zwei Monate am Stück pausieren** können; fällt eine Box durch einen von Nina verursachten Fehler aus, soll **automatisch eine Gutschrift für die nächste Box** entstehen. | Idee erstmals in M1-A11 genannt; **in M2-A1 ausdrücklich zur App-Anforderung gemacht und konkretisiert**. Umsetzungsphase noch nicht festgelegt. |
 
-Die Einstufung „v1“ bzw. „später“ ist ein **Arbeitsvorschlag**, nicht bereits die ausdrückliche Freigabe von Nina. Besonders die Abo-Box gilt **noch nicht** als bestätigte neue Anforderung aus Meeting 2.
+**Wichtige Trennung:** Die ungefähr **80 Instagram-Anmeldungen** sind laut Nina Interesse/Anmeldungen, **nicht nachweislich bereits bezahlte Abonnements**. Die Abo-Box war in Meeting 1 eine Zukunftsidee; in Meeting 2 wurde die Umsetzung **verbindlich gewünscht**. Für diese Abgabe wird sie als **eine neu bestätigte Anforderungsgruppe** erfasst, nicht als mehrere unabhängige neue Anforderungen. **Belege:** M1-A11; M2-A1.
 
-## 7. Offene Fragen für Meeting 2
+**Noch ungeklärt für den Abo-Prozess:** Austausch fehlender Produkte, Berechnung/Höhe der Gutschrift, Zahlungs- und Versandrhythmus, Kündigung sowie Umsetzung im ersten oder späteren App-Ausbauschritt. Keine dieser Details wird ohne Interviewbeleg festgelegt.
 
-1. **Übergabe:** Welche konkreten Alternativen zu DHL gibt es (Abholung, persönliche Übergabe, weitere)? Wer entscheidet, und welche Gebühren oder Status gelten? (M1-A12)
-2. **Preiskalkulation:** Sind die 39 € vor oder nach Stammkunden-/Aktionsrabatt maßgeblich? Wie werden beide Rabatte der Reihenfolge nach angewendet? (M1-A2, A3)
-3. **Zahlung/Versand:** Unter welchen Bedingungen darf vor bestätigtem Geldeingang gepackt oder übergeben werden? Gibt es feste Fristen für Zahlungserinnerung und Stornierung? (M1-A10)
-4. **Chargen:** Bedeutet „ältere zuerst“ immer frühestes Herstellungsdatum oder tatsächlich kürzestes MHD? Wie wird bei überschrittenem MHD gehandelt? (M1-A4)
-5. **Allergene:** Welche Inhaltsstoffinformationen gelten im Bestellvorgang bei chargenbedingten Rezepturänderungen, und wann genau ist die Bestätigung erforderlich? (M1-A5)
-6. **B2B-Ausnahme:** Gelten bei einer genehmigten Bestellung unter 50 Stück weiterhin kostenloser B2B-Versand und 30 Tage Zahlungsziel? (M1-A6–A8)
-7. **Berechtigungen:** Welche Angaben müssen Mama/Jessi auf einem Packauftrag sehen, damit sie packen können, ohne unzulässige Kundendaten oder Preise zu erhalten? (M1-A9)
-8. **Neue Anforderung in Meeting 2:** Die vorgeschriebene Zukunftsfrage ausdrücklich **im selben Chat in Meeting 2** stellen: „Was planst du als Nächstes?“; die Antwort von den bereits genannten Zukunftsideen aus M1-A11 trennen.
+## 8. Offene Fragen und bewusst nicht getroffene Annahmen
 
-## 8. Nächste Arbeitsschritte
+1. **Rabattberechnung:** In welcher Reihenfolge werden prozentuale Stammkunden- und kombinierbare Aktionsrabatte angewandt? Gibt es mehrere gleichzeitige Codes? (M1-A3; M2-A4)
+2. **Restposten/MHD:** Wie hoch soll der Preisnachlass bei unter 30 Tagen Restlaufzeit sein? Wie wird Ware mit überschrittenem MHD behandelt? (M1-A4; M2-A7)
+3. **Teilzahlung und Teillieferung:** Sind mehrere Zahlungen oder mehrere Sendungen pro Bestellung möglich? B8 und B9 enthalten deshalb vorläufige **0..1-Annahmen**. (Nicht eindeutig im Interview geklärt.)
+4. **B2B-Sonderkonditionen:** Wie werden individueller B2B-Grundpreis und Partner-Rabatt exakt verrechnet? Welche Besonderheiten gelten bei einer genehmigten Bestellung unter 50 Einheiten? (M1-A6–A8)
+5. **Abo-Box:** Wird ein nicht verfügbares Produkt ersetzt oder die Box verschoben? Welcher Betrag wird gutgeschrieben, und wie werden Abo-Pausen, Kündigung und Zahlung gehandhabt? (M2-A1)
+6. **Bestandsreservierung:** Zu welchem Zeitpunkt werden Chargenmengen reserviert, bei Stornierung wieder freigegeben und bei tatsächlicher Übergabe endgültig abgebucht? (M1-A4; M2-A5–A7)
 
-1. **Diese Arbeitsfassung als `SPEC.md` (Version 1)** im öffentlichen GitHub-Repository im Hauptverzeichnis ablegen (Commit-Nachricht: `SPEC.md v1 nach Meeting 1`).
-2. **Meeting 2 im bestehenden K6-Chat** führen: 8 weitere Nachrichten, gezielt nach offenen Punkten fragen und die Zukunftsfrage dort stellen. Die Antworten als **M2-A1 bis M2-A8** dokumentieren.
-3. Die SPEC.md anhand der tatsächlichen Aussagen überarbeiten und Entitäten, Beziehungen/Kardinalitäten, genau fünf zentrale Regelkomplexe, zwei Widerspruchsauflösungen, Prioritäten und offene Fragen mit dem professoralen **Anforderungsmodell** abgleichen.
-4. **Version 2 der `SPEC.md`** mit dem Commit `SPEC.md v2 nach Meeting 2` auf GitHub sichern. Den **öffentlichen Repo-Link** bis **08.11.2026, 23:59 Uhr**, in Moodle einreichen.
+Diese offenen Fragen sind **keine erfundenen Geschäftsregeln**. Sie zeigen klar, welche Entscheidungen vor dem späteren App-Bau noch mit Nina zu klären sind.
 
-> **Abgrenzung:** Diese Version modelliert Anforderungen (ER-Modell-Niveau). Relationale Tabellen, Programmcode und externe Anbindungen gehören noch nicht zu dieser Abgabe.
+## 9. Interview-Nachweis und Abgabestatus
+
+| Abschnitt | Nachrichten | Besonders relevante Ergebnisse |
+|---|---|---|
+| **Meeting 1** | **M1-A1–M1-A12** | Bestellablauf, Preise/Rabatte, B2B, Chargen, Inhaltsstoffe, Rechte, Zahlung, Zukunftspläne und Hinweis auf weitere Übergabearten |
+| **Meeting 2** | **M2-A1–M2-A8** | Bestätigte Abo-Anforderung, drei Übergabearten, finale Versandkostenentscheidung, Zahlungsfristen und Trennung von Packen/Versenden, MHD-Entnahme, Chargen-/Allergenbezug und Packansicht |
+
+**Nachvollziehbarkeit:** Verweise wie `M2-A7` beziehen sich auf die **siebte Kundenantwort in Meeting 2** im vorhandenen K6-Chat, nicht auf eine erfundene externe Quelle. Das Interview wurde über dieselbe Kundensimulation geführt; für die Benotung sind die dort gespeicherten Fragen maßgeblich.
+
+**Abgabe:** Diese Datei heißt **`SPEC.md`** und gehört ins **Hauptverzeichnis** des öffentlichen GitHub-Repositories. Version 1 ist bereits historisiert. Für diese Überarbeitung lautet die vorgesehene Commit-Nachricht: **`SPEC.md v2 nach Meeting 2`**. In Moodle wird **der Link auf das öffentliche Repository**, nicht die HTML-Leseansicht, bis **08.11.2026, 23:59 Uhr** eingereicht.
