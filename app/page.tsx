@@ -2,6 +2,7 @@ import { ArrowDown, Boxes, Leaf, PackagePlus } from "lucide-react";
 import { connection } from "next/server";
 import { db } from "../lib/db";
 import { inventoryFor, todayInBerlin } from "../lib/inventory";
+import { availableBatches } from "../lib/orders";
 import { EntryForm } from "./forms";
 
 const currency = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
@@ -14,7 +15,7 @@ export default async function Home() {
     db.ingredient.findMany({ orderBy: { name: "asc" } }),
     db.product.findMany({
       orderBy: [{ name: "asc" }, { id: "asc" }],
-      include: { recipe: true, batches: { include: { ingredients: { orderBy: { name: "asc" } } } } },
+      include: { recipe: true, batches: { include: { allocations: true, ingredients: { orderBy: { name: "asc" } } } } },
     }),
   ]);
   const today = todayInBerlin();
@@ -24,7 +25,7 @@ export default async function Home() {
       <header className="site-header">
         <div className="shell header-inner">
           <a className="brand" href="/"><Leaf size={21} aria-hidden="true" /> Wolff’s Naturkosmetik</a>
-          <nav aria-label="Hauptnavigation"><a href="/" aria-current="page">Produktion</a></nav>
+          <nav className="main-nav" aria-label="Hauptnavigation"><a href="/" aria-current="page">Produktion</a><a href="/bestellungen">Bestellungen</a></nav>
         </div>
       </header>
       <main className="shell">
@@ -47,7 +48,7 @@ export default async function Home() {
             </div>
           )}
           {products.map((product) => {
-            const { available, entries } = inventoryFor(product.batches, today);
+            const { available, entries } = inventoryFor(availableBatches(product.batches), today);
             return (
               <article className="panel product" key={product.id}>
                 <div className="product-heading">
@@ -62,7 +63,7 @@ export default async function Home() {
                   <div className="table-scroll" role="region" tabIndex={0} aria-label={`Chargen für ${product.name}`}>
                     <table>
                       <thead>
-                        <tr><th scope="col">Charge</th><th scope="col">Hergestellt</th><th scope="col" aria-sort="ascending">MHD ↑</th><th scope="col">Status</th><th scope="col">Inhaltsstoffe</th><th scope="col" className="numeric">Stück</th></tr>
+                        <tr><th scope="col">Charge</th><th scope="col">Hergestellt</th><th scope="col" aria-sort="ascending">MHD ↑</th><th scope="col">Status</th><th scope="col">Inhaltsstoffe</th><th scope="col" className="numeric">Freie Stück</th></tr>
                       </thead>
                       <tbody>
                         {entries.map((batch) => (

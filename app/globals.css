@@ -72,3 +72,19 @@ button:disabled { opacity: .65; cursor: default; }
 :focus-visible { outline: 2px solid #3f7858; outline-offset: 3px; }
 .field-error { color: #8b332d; }
 .success { color: var(--green); }
+
+.main-nav { display: flex; flex-wrap: wrap; gap: .35rem; padding-block: .5rem; }
+.main-nav a { padding: .55rem .85rem; }
+.order-layout { display: grid; gap: 1.25rem; align-items: start; }
+@media (min-width: 52rem) { .order-layout { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
+.order-stack { display: grid; gap: 1rem; min-width: 0; }
+.order-layout .field select { width: 100%; background: #fffef9; border: 1px solid #a8aa9c; border-radius: .5rem; padding: .55rem .7rem; font-weight: 400; }
+.order-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .55rem; padding-block: .55rem; border-bottom: 1px solid var(--line); }
+.order-totals { display: grid; grid-template-columns: 1fr auto; gap: .3rem 1rem; margin-top: 1rem; font-variant-numeric: tabular-nums; }
+.order-totals dd { text-align: right; }
+.order-actions { margin-top: 1rem; }
+.text-link { color: var(--green); text-decoration: underline; text-underline-offset: .2em; }
+button.secondary { background: transparent; color: var(--green); border: 1px solid var(--line); }
+button.secondary:hover:not(:disabled) { background: #e5eee2; }
+.order-message { white-space: pre-wrap; overflow-wrap: anywhere; padding-block: .75rem; font-family: inherit; }
+.allergen-page { max-width: 45rem; }
