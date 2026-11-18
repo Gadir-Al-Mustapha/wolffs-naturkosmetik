@@ -1,1 +1,74 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif&display=swap");
 @import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --ground: #f6f3ea;
+  --panel: #fffcf5;
+  --ink: #242e25;
+  --muted: #556155;
+  --green: #244b38;
+  --line: #dddacf;
+}
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: "DM Sans", sans-serif;
+  line-height: 1.5;
+}
+
+.shell { width: min(72rem, calc(100% - 2rem)); margin-inline: auto; }
+main.shell { padding-block: clamp(2rem, 6vw, 5rem); }
+.site-header { background: var(--panel); border-bottom: 1px solid var(--line); }
+.header-inner, .page-heading, .product-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.header-inner { min-height: 4.75rem; }
+.brand, .button, .empty a { display: inline-flex; align-items: center; gap: .6rem; }
+.brand { font-weight: 700; color: var(--green); }
+nav a[aria-current] { background: #e5eee2; color: var(--green); border-radius: .5rem; padding: .55rem .85rem; font-weight: 700; }
+h1, h2, h3 { font-family: "Instrument Serif", Georgia, serif; line-height: 1.05; }
+h1 { font-size: clamp(2.75rem, 7vw, 5rem); }
+h2 { font-size: 2.25rem; margin-bottom: 1rem; }
+h3 { font-size: 1.85rem; }
+p { margin-top: .45rem; }
+.page-heading { margin-bottom: 2.5rem; }
+.page-heading p, .muted, .product-heading p, .empty p { color: var(--muted); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 1rem; padding: clamp(1rem, 3vw, 1.65rem); box-shadow: 0 4px 16px #332b2110; }
+.empty { min-height: 13rem; display: grid; justify-items: center; align-content: center; gap: .55rem; text-align: center; }
+.empty svg, .empty a { color: var(--green); }
+.empty a { text-decoration: underline; font-weight: 700; margin-top: .35rem; }
+.product + .product { margin-top: 1rem; }
+.product-heading p, .badge, table { font-variant-numeric: tabular-nums; }
+.badge { display: inline-block; border-radius: 999px; padding: .2rem .65rem; margin-block: .1rem; font-size: .8rem; font-weight: 700; background: #eeebe1; }
+.available, .Regulär { color: #234832; background: #e5eee2; }
+.Restposten { color: #6d430f; background: #f8e7c3; }
+.Abgelaufen { color: #82352c; background: #f8e4df; }
+.recipe { margin-block: .85rem; }
+.recipe strong { margin-right: .35rem; }
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; text-align: left; }
+th, td { padding: .8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+thead { color: var(--muted); font-size: .85rem; }
+tbody tr:hover { background: #f6f3ea; }
+.numeric { text-align: right; }
+.batch-ingredients { min-width: 10rem; }
+.batch-ingredients .badge { margin-left: .45rem; }
+.batch-ingredients small { display: block; color: var(--muted); }
+.batch-form { margin-top: 1rem; }
+summary { cursor: pointer; color: var(--green); font-weight: 700; }
+details .entry-form { margin-top: 1rem; }
+.setup-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); margin-top: 2rem; }
+.form-fields, .date-fields { display: grid; gap: .85rem; min-width: 0; }
+.date-fields { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
+.field { display: grid; gap: .3rem; font-weight: 600; min-width: 0; }
+.field input { width: 100%; min-width: 0; background: #fffef9; border: 1px solid #a8aa9c; border-radius: .5rem; padding: .55rem .7rem; font-weight: 400; }
+.ingredient-picker { border: 1px solid var(--line); padding: .55rem .75rem; border-radius: .5rem; }
+.ingredient-picker legend { padding-inline: .25rem; font-weight: 600; }
+.check { display: flex; align-items: center; gap: .5rem; min-height: 2rem; flex-wrap: wrap; }
+input[type="checkbox"] { accent-color: var(--green); width: 1rem; height: 1rem; }
+button, .button { border-radius: .5rem; background: var(--green); color: white; font-weight: 700; padding: .65rem .85rem; justify-self: start; cursor: pointer; }
+button:hover:not(:disabled), .button:hover { background: #32644a; }
+button:disabled { opacity: .65; cursor: default; }
+:focus-visible { outline: 2px solid #3f7858; outline-offset: 3px; }
+.field-error { color: #8b332d; }
+.success { color: var(--green); }
