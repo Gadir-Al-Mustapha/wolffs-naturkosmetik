@@ -14,6 +14,7 @@ model Product {
   recipe            Ingredient[] @relation("BaseRecipe")
   batches           Batch[]
   orderLines        OrderLine[]
+  monthlyBoxes      MonthlyBox[]
 }
 
 model Ingredient {
@@ -56,6 +57,7 @@ model Customer {
   loyal  Boolean
   partnerDiscountPercent Int?
   orders PrivateOrder[]
+  monthlyBoxes MonthlyBox[]
 }
 
 model Promotion {
@@ -141,4 +143,28 @@ model TestPaymentReminder {
   order     PrivateOrder @relation(fields: [orderId], references: [id])
   body      String
   createdAt DateTime     @default(now())
+}
+
+model MonthlyBox {
+  id              Int       @id @default(autoincrement())
+  customerId      Int
+  customer        Customer  @relation(fields: [customerId], references: [id])
+  products        Product[]
+  inviteToken     String    @unique
+  managementToken String    @unique
+  priceCent       Int
+  activatedAt     DateTime?
+  pauses          MonthlyBoxPause[]
+}
+
+model MonthlyBoxPause {
+  boxId      Int
+  box        MonthlyBox @relation(fields: [boxId], references: [id], onDelete: Cascade)
+  startMonth Int
+  endMonth   Int
+  resumedAt  DateTime?
+
+  id Int @id @default(autoincrement())
+
+  @@index([boxId, startMonth])
 }

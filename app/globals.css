@@ -78,7 +78,7 @@ button:disabled { opacity: .65; cursor: default; }
 .order-layout { display: grid; gap: 1.25rem; align-items: start; }
 @media (min-width: 52rem) { .order-layout { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } }
 .order-stack { display: grid; gap: 1rem; min-width: 0; }
-.order-layout .field select { width: 100%; background: #fffef9; border: 1px solid #a8aa9c; border-radius: .5rem; padding: .55rem .7rem; font-weight: 400; }
+.field select { width: 100%; background: #fffef9; border: 1px solid #a8aa9c; border-radius: .5rem; padding: .55rem .7rem; font-weight: 400; }
 .order-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .55rem; padding-block: .55rem; border-bottom: 1px solid var(--line); }
 .order-totals { display: grid; grid-template-columns: 1fr auto; gap: .3rem 1rem; margin-top: 1rem; font-variant-numeric: tabular-nums; }
 .order-totals dd { text-align: right; }
