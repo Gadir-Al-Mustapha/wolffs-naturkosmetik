@@ -1,8 +1,10 @@
 import { isCalendarDate } from "./inventory.ts";
 
+export const reservingOrders = { handedOffAt: null, cancelledAt: null };
+
 export const packableOrders = {
   confirmedAt: { not: null },
-  handedOffAt: null,
+  ...reservingOrders,
   OR: [{ loyal: true }, { partnerDiscountPercent: { not: null } }, { payment: { status: "paid" } }],
   AND: [{ OR: [{ delivery: { not: "dhl" } }, { labelReadyAt: { not: null } }] }],
 };
@@ -10,6 +12,7 @@ export const packableOrders = {
 type FulfillmentOrder = {
   confirmedAt: Date | null;
   handedOffAt: Date | null;
+  cancelledAt: Date | null;
   packedAt: Date | null;
   labelReadyAt: Date | null;
   bicycleStartedAt: Date | null;
@@ -20,7 +23,7 @@ type FulfillmentOrder = {
 };
 
 export function fulfillmentPermissions(order: FulfillmentOrder) {
-  const active = !!order.confirmedAt && !order.handedOffAt;
+  const active = !!order.confirmedAt && !order.handedOffAt && !order.cancelledAt;
   const paid = order.payment?.status === "paid";
   const partner = order.partnerDiscountPercent !== null;
   return {

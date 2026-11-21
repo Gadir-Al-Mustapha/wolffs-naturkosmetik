@@ -1,5 +1,6 @@
 "use server";
 
+import { reservingOrders } from "../../lib/fulfillment";
 import { requireRole } from "../../lib/access";
 import { matchesSecret } from "../../lib/session";
 
@@ -129,7 +130,7 @@ export async function saveOrder(id: number | null, revision: string, form: FormD
         where: { id: { in: [...quantities.keys()] } },
         include: { batches: { include: {
           ingredients: { orderBy: { ingredientId: "asc" } },
-          allocations: { where: { line: { orderId: { not: id ?? 0 }, order: { handedOffAt: null } } } },
+          allocations: { where: { line: { orderId: { not: id ?? 0 }, order: reservingOrders } } },
         } } },
       });
       if (products.length !== quantities.size) throw new OrderError("Ein Produkt ist nicht mehr verfügbar.", "quantities");

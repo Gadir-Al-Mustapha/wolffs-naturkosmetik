@@ -1,3 +1,4 @@
+import { reservingOrders } from "../../lib/fulfillment";
 import { requireRole } from "../../lib/access";
 import { randomUUID } from "node:crypto";
 import { ClipboardList, Leaf } from "lucide-react";
@@ -16,10 +17,10 @@ export default async function Orders({ searchParams }: {
   const id = Number((await searchParams).auftrag);
   const [customers, products, orders, promotions] = await Promise.all([
     db.customer.findMany({ orderBy: { name: "asc" } }),
-    db.product.findMany({ orderBy: { name: "asc" }, include: { batches: { include: { allocations: { where: { line: { order: { handedOffAt: null } } } } } } } }),
+    db.product.findMany({ orderBy: { name: "asc" }, include: { batches: { include: { allocations: { where: { line: { order: reservingOrders } } } } } } }),
     db.privateOrder.findMany({
       orderBy: { id: "desc" },
-      include: { customer: true, message: true, payment: true, lines: {
+      include: { customer: true, message: true, reminder: true, payment: true, lines: {
         include: { product: true, allocations: { include: { batch: true }, orderBy: { batch: { bestBefore: "asc" } } } },
       } },
     }),
@@ -56,8 +57,8 @@ export default async function Orders({ searchParams }: {
               <section className="panel">
                 <div className="product-heading">
                   <h2>Bestellung #{selected.id}</h2>
-                  <span className={selected.confirmedAt ? "badge available" : "badge Restposten"}>
-                    {selected.confirmedAt ? "Bestätigt" : "Entwurf"}
+                  <span className={selected.confirmedAt && !selected.cancelledAt ? "badge available" : "badge Restposten"}>
+                    {selected.cancelledAt ? "Storniert" : selected.confirmedAt ? "Bestätigt" : "Entwurf"}
                   </span>
                 </div>
                 <p>{selected.customer.name} · {deliveries[selected.delivery]}</p>
@@ -194,6 +195,12 @@ export default async function Orders({ searchParams }: {
             <section className="panel" id="testpostfach">
               <h2>Lokales Testpostfach</h2>
               {orders.every(order => !order.message) && <p className="muted">Sobald eine Bestellung bestätigt ist, erscheint hier ihre Nachricht.</p>}
+              {orders.filter(order => order.reminder).map(order => (
+                <details key={`reminder-${order.id}`} open={order.id === selected?.id}>
+                  <summary>Zahlungserinnerung #{order.id}</summary>
+                  <pre className="order-message">{order.reminder!.body}</pre>
+                </details>
+              ))}
               {orders.filter(order => order.message).map(order => (
                 <details key={order.id} open={order.id === selected?.id}>
                   <summary>Bestellbestätigung #{order.id}</summary>
@@ -210,7 +217,7 @@ export default async function Orders({ searchParams }: {
                 <ul className="order-list">
                   {orders.map(order => <li key={order.id}>
                     <a className="text-link" href={`?auftrag=${order.id}`}>#{order.id} · {order.customer.name}</a>
-                    <span className={order.confirmedAt ? "badge available" : "badge Restposten"}>{order.confirmedAt ? "Bestätigt" : "Entwurf"}</span>
+                    <span className={order.confirmedAt && !order.cancelledAt ? "badge available" : "badge Restposten"}>{order.cancelledAt ? "Storniert" : order.confirmedAt ? "Bestätigt" : "Entwurf"}</span>
                   </li>)}
                 </ul>
               ) : <p className="muted">Hier erscheinen deine Entwürfe und bestätigten Bestellungen.</p>}

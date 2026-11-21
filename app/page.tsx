@@ -1,3 +1,4 @@
+import { reservingOrders } from "../lib/fulfillment";
 import { requireRole } from "../lib/access";
 import { ArrowDown, Boxes, Leaf, PackagePlus } from "lucide-react";
 import { connection } from "next/server";
@@ -17,7 +18,7 @@ export default async function Home() {
     db.ingredient.findMany({ orderBy: { name: "asc" } }),
     db.product.findMany({
       orderBy: [{ name: "asc" }, { id: "asc" }],
-      include: { recipe: true, batches: { include: { allocations: { where: { line: { order: { handedOffAt: null } } } }, ingredients: { orderBy: { name: "asc" } } } } },
+      include: { recipe: true, batches: { include: { allocations: { where: { line: { order: reservingOrders } } }, ingredients: { orderBy: { name: "asc" } } } } },
     }),
   ]);
   const today = todayInBerlin();

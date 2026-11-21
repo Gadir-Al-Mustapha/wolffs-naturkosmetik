@@ -41,6 +41,7 @@ export async function updateFulfillment(id: number, command: OwnerCommand, _prev
       include: { payment: true },
     });
     if (!order?.confirmedAt) throw new FulfillmentError("Diese Bestellung ist noch nicht bestätigt.");
+    if (order.cancelledAt) throw new FulfillmentError("Diese Bestellung wurde storniert.");
     const now = new Date();
     const permissions = fulfillmentPermissions(order);
 

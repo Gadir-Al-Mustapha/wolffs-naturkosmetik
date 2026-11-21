@@ -9,6 +9,7 @@ const order = {
   confirmedAt: now,
   packedAt: null,
   handedOffAt: null,
+  cancelledAt: null,
   labelReadyAt: null,
   bicycleStartedAt: null,
   delivery: "pickup",

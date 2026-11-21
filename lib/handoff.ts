@@ -13,7 +13,7 @@ export async function handOffOrder(db: PrismaClient, id: number, form: FormData,
     const value = form.get(order.delivery === "dhl" ? "tracking" : "pickupOn");
     const details = handoffDetails(order, typeof value === "string" ? value.trim() : "", todayInBerlin(now));
     const result = await tx.privateOrder.updateMany({
-      where: { id, handedOffAt: null },
+      where: { id, handedOffAt: null, cancelledAt: null },
       data: { ...details, handedOffAt: now },
     });
     if (!result.count) return;
