@@ -18,3 +18,5 @@ npm run dev
 ```
 
 Die Produktionsansicht ist unter <http://localhost:3000> erreichbar. `npm test` prüft die Bestandsregeln und die Allergenangaben je Charge. `npm run build` erstellt die Produktionsfassung.
+
+Vor dem Start die Kennwörter als Umgebungsvariablen setzen. Die Inhaberin nutzt `OWNER_APPROVAL_SECRET` für die Verwaltung, die Packhilfen ein eigenes gemeinsames Kennwort in `PACKING_SECRET` für `/packen`. Der Bereich `/abwicklung` zeigt die bestätigten Bestellungen mit ihren Zahlungs-, Pack- und Übergabeständen. Die Tests für die Bestandsabbuchung verwenden den generierten Prisma-Client und eine eigene temporäre SQLite-Datenbank.

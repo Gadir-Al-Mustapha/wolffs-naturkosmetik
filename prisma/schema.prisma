@@ -86,6 +86,12 @@ model PrivateOrder {
   partnerPriceApplied Boolean @default(false)
   partnerExceptionReason String?
   payment Payment?
+  labelReadyAt DateTime?
+  packedAt DateTime?
+  bicycleStartedAt DateTime?
+  handedOffAt DateTime?
+  pickupOn String?
+  trackingNumber String?
 }
 
 model OrderLine {
@@ -124,5 +130,6 @@ model Payment {
   order PrivateOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   method String
   status String
-  dueOn String
+  dueOn String?
+  paidAt DateTime?
 }

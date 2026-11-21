@@ -1,6 +1,9 @@
 "use server";
 
-import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { requireRole } from "../../lib/access";
+import { matchesSecret } from "../../lib/session";
+
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../../lib/db";
@@ -17,9 +20,7 @@ const text = (form: FormData, field: string) => String(form.get(field) ?? "").tr
 
 function ownerAuthorized(candidate: FormDataEntryValue | null) {
   const secret = process.env.OWNER_APPROVAL_SECRET;
-  if (!secret || typeof candidate !== "string") return false;
-  const digest = (value: string) => createHash("sha256").update(value).digest();
-  return timingSafeEqual(digest(candidate), digest(secret));
+  return !!secret && typeof candidate === "string" && matchesSecret(candidate, secret);
 }
 
 async function runOrderAction(work: () => Promise<string | void>) {
@@ -48,6 +49,7 @@ function readCode(form: FormData) {
 }
 
 export async function savePromotion(form: FormData) {
+  await requireRole("owner");
   return runOrderAction(async () => {
     const code = readCode(form);
     const percent = Number(text(form, "percent"));
@@ -61,6 +63,7 @@ export async function savePromotion(form: FormData) {
 }
 
 export async function saveOrder(id: number | null, revision: string, form: FormData) {
+  await requireRole("owner");
   return runOrderAction(async () => {
     const code = readCode(form);
     const delivery = text(form, "delivery") as keyof typeof deliveries;
@@ -126,7 +129,7 @@ export async function saveOrder(id: number | null, revision: string, form: FormD
         where: { id: { in: [...quantities.keys()] } },
         include: { batches: { include: {
           ingredients: { orderBy: { ingredientId: "asc" } },
-          allocations: { where: { line: { orderId: { not: id ?? 0 } } } },
+          allocations: { where: { line: { orderId: { not: id ?? 0 }, order: { handedOffAt: null } } } },
         } } },
       });
       if (products.length !== quantities.size) throw new OrderError("Ein Produkt ist nicht mehr verfügbar.", "quantities");
@@ -169,6 +172,7 @@ export async function saveOrder(id: number | null, revision: string, form: FormD
 }
 
 export async function discardOrder(id: number, token: string, _form: FormData) {
+  await requireRole("owner");
   return runOrderAction(async () => {
     const deleted = await db.privateOrder.deleteMany({ where: { id, token, confirmedAt: null } });
     if (!deleted.count) throw new OrderError("Der Entwurf ist nicht mehr verfügbar.");
@@ -195,6 +199,7 @@ export async function acknowledge(token: string, form: FormData) {
 }
 
 export async function finalizeOrder(id: number, token: string, _form: FormData) {
+  await requireRole("owner");
   return runOrderAction(async () => {
     await db.$transaction(async tx => {
       const order = await tx.privateOrder.findUnique({

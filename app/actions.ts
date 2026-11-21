@@ -1,5 +1,7 @@
 "use server";
 
+import { requireRole } from "../lib/access";
+
 import { revalidatePath } from "next/cache";
 import { db } from "../lib/db";
 import { batchIngredientEntries, isCalendarDate } from "../lib/inventory";
@@ -15,6 +17,7 @@ function ingredientIds(form: FormData) {
 }
 
 export async function addIngredient(_state: FormState, form: FormData): Promise<FormState> {
+  await requireRole("owner");
   const name = value(form, "name");
   if (!name) return { errors: { name: "Bitte gib eine Bezeichnung ein." } };
   try {
@@ -33,6 +36,7 @@ export async function addIngredient(_state: FormState, form: FormData): Promise<
 }
 
 export async function addProduct(_state: FormState, form: FormData): Promise<FormState> {
+  await requireRole("owner");
   const name = value(form, "name");
   const price = value(form, "price");
   const [euros, cents = ""] = price.replace(",", ".").split(".");
@@ -61,6 +65,7 @@ export async function addProduct(_state: FormState, form: FormData): Promise<For
 }
 
 export async function addBatch(productId: number, _state: FormState, form: FormData): Promise<FormState> {
+  await requireRole("owner");
   const manufacturedOn = value(form, "manufacturedOn");
   const bestBefore = value(form, "bestBefore");
   const rawQuantity = value(form, "quantity");

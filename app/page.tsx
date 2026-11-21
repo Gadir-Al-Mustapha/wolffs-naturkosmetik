@@ -1,3 +1,4 @@
+import { requireRole } from "../lib/access";
 import { ArrowDown, Boxes, Leaf, PackagePlus } from "lucide-react";
 import { connection } from "next/server";
 import { db } from "../lib/db";
@@ -11,11 +12,12 @@ const date = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeZone: "
 
 export default async function Home() {
   await connection();
+  await requireRole("owner");
   const [ingredients, products] = await Promise.all([
     db.ingredient.findMany({ orderBy: { name: "asc" } }),
     db.product.findMany({
       orderBy: [{ name: "asc" }, { id: "asc" }],
-      include: { recipe: true, batches: { include: { allocations: true, ingredients: { orderBy: { name: "asc" } } } } },
+      include: { recipe: true, batches: { include: { allocations: { where: { line: { order: { handedOffAt: null } } } }, ingredients: { orderBy: { name: "asc" } } } } },
     }),
   ]);
   const today = todayInBerlin();
@@ -25,7 +27,7 @@ export default async function Home() {
       <header className="site-header">
         <div className="shell header-inner">
           <a className="brand" href="/"><Leaf size={21} aria-hidden="true" /> Wolff’s Naturkosmetik</a>
-          <nav className="main-nav" aria-label="Hauptnavigation"><a href="/" aria-current="page">Produktion</a><a href="/bestellungen">Bestellungen</a></nav>
+          <nav className="main-nav" aria-label="Hauptnavigation"><a href="/" aria-current="page">Produktion</a><a href="/bestellungen">Bestellungen</a><a href="/abwicklung">Abwicklung</a></nav>
         </div>
       </header>
       <main className="shell">

@@ -1,3 +1,4 @@
+import { requireRole } from "../../lib/access";
 import { randomUUID } from "node:crypto";
 import { ClipboardList, Leaf } from "lucide-react";
 import { connection } from "next/server";
@@ -11,10 +12,11 @@ export default async function Orders({ searchParams }: {
   searchParams: Promise<{ auftrag?: string }>;
 }) {
   await connection();
+  await requireRole("owner");
   const id = Number((await searchParams).auftrag);
   const [customers, products, orders, promotions] = await Promise.all([
     db.customer.findMany({ orderBy: { name: "asc" } }),
-    db.product.findMany({ orderBy: { name: "asc" }, include: { batches: { include: { allocations: true } } } }),
+    db.product.findMany({ orderBy: { name: "asc" }, include: { batches: { include: { allocations: { where: { line: { order: { handedOffAt: null } } } } } } } }),
     db.privateOrder.findMany({
       orderBy: { id: "desc" },
       include: { customer: true, message: true, payment: true, lines: {
@@ -38,6 +40,7 @@ export default async function Orders({ searchParams }: {
           <a className="brand" href="/"><Leaf size={21} aria-hidden="true" /> Wolff’s Naturkosmetik</a>
           <nav className="main-nav" aria-label="Hauptnavigation">
             <a href="/">Produktion</a><a href="/bestellungen" aria-current="page">Bestellungen</a>
+            <a href="/abwicklung">Abwicklung</a>
           </nav>
         </div>
       </header>
@@ -64,7 +67,10 @@ export default async function Orders({ searchParams }: {
                     : "Standardpreis bei weniger als 50 Stück"}
                 </p>}
                 {selected.partnerExceptionReason && <p>Genehmigte Ausnahme · {selected.partnerExceptionReason}</p>}
-                {selected.payment && <p>Rechnung offen · Fällig am {selected.payment.dueOn}</p>}
+                {selected.payment?.method === "invoice" && <p>
+                  {selected.payment.status === "paid" ? "Rechnung bezahlt" : "Rechnung offen"} · Fällig am {selected.payment.dueOn}
+                </p>}
+                {selected.confirmedAt && <p><a className="text-link" href={`/abwicklung#auftrag-${selected.id}`}>Abwicklung ansehen</a></p>}
                 <div className="table-scroll">
                   <table>
                     <thead><tr><th>Produkt und Chargen</th><th className="numeric">Einzelpreis</th></tr></thead>
