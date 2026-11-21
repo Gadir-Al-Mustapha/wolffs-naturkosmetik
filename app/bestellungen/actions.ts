@@ -1,6 +1,7 @@
 "use server";
 
-import { reservingOrders } from "../../lib/fulfillment";
+import { availableBoxCredit } from "../../lib/monthly-box";
+import { allocateOrderLines, OrderError } from "../../lib/order-allocation";
 import { requireRole } from "../../lib/access";
 import { matchesSecret } from "../../lib/session";
 
@@ -9,13 +10,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../../lib/db";
 import { todayInBerlin } from "../../lib/inventory";
-import { allocate, availableBatches, deliveries, euros, invoiceDueOn, needsConfirmation, orderPrices, partnerPriceApplies, partnerUnitPrice, promotionCode } from "../../lib/orders";
-
-class OrderError extends Error {
-  constructor(message: string, readonly field?: string) {
-    super(message);
-  }
-}
+import { deliveries, euros, invoiceDueOn, needsConfirmation, orderPrices, partnerPriceApplies, partnerUnitPrice, promotionCode } from "../../lib/orders";
 
 const text = (form: FormData, field: string) => String(form.get(field) ?? "").trim();
 
@@ -84,8 +79,12 @@ export async function saveOrder(id: number | null, revision: string, form: FormD
     const orderId = await db.$transaction(async tx => {
       const current = await tx.privateOrder.findUnique({ where: { token: revision } });
       if (!id && current) return current.id;
-      if (id && (current?.id !== id || current.confirmedAt)) {
+      if (id && (current?.id !== id || current.confirmedAt || current.cancelledAt)) {
         throw new OrderError("Dieser Entwurf wurde inzwischen geändert. Bitte lade ihn erneut.");
+      }
+
+      if (id && await tx.monthlyBoxRun.findUnique({ where: { orderId: id } })) {
+        throw new OrderError("Diese Bestellung wird über die Monatsbox bearbeitet.");
       }
 
       const customerId = Number(text(form, "customer"));
@@ -126,31 +125,9 @@ export async function saveOrder(id: number | null, revision: string, form: FormD
       const promotion = code ? await tx.promotion.findUnique({ where: { code } }) : null;
       if (code && !promotion) throw new OrderError("Dieser Aktionscode ist unbekannt.", "code");
 
-      const products = await tx.product.findMany({
-        where: { id: { in: [...quantities.keys()] } },
-        include: { batches: { include: {
-          ingredients: { orderBy: { ingredientId: "asc" } },
-          allocations: { where: { line: { orderId: { not: id ?? 0 }, order: reservingOrders } } },
-        } } },
-      });
-      if (products.length !== quantities.size) throw new OrderError("Ein Produkt ist nicht mehr verfügbar.", "quantities");
-
-      const today = todayInBerlin();
-      const lines = products.map(product => {
-        const quantity = quantities.get(product.id)!;
-        const assignments = allocate(availableBatches(product.batches), quantity, today);
-        if (!assignments) throw new OrderError(`Für „${product.name}“ sind weniger als ${quantity} Stück verfügbar.`, "quantities");
-        return {
-          productId: product.id, quantity,
-          unitPrice: partnerPriceApplied
-            ? partnerUnitPrice(product.standardPriceCent, partnerDiscountPercent!)
-            : product.standardPriceCent,
-          allocations: { create: assignments.map(({ batch, quantity }) => ({
-            batchId: batch.id, quantity,
-            ingredients: batch.ingredients.map(({ name, isAllergen, note }) => ({ name, isAllergen, note })),
-          })) },
-        };
-      });
+      const lines = await allocateOrderLines(tx, quantities, product => partnerPriceApplied
+        ? partnerUnitPrice(product.standardPriceCent, partnerDiscountPercent!)
+        : product.standardPriceCent, id ?? undefined);
       const subtotal = lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
       if (!Number.isSafeInteger(subtotal) || subtotal > 2_147_483_257) {
         throw new OrderError("Der Bestellwert ist zu hoch.");
@@ -175,7 +152,7 @@ export async function saveOrder(id: number | null, revision: string, form: FormD
 export async function discardOrder(id: number, token: string, _form: FormData) {
   await requireRole("owner");
   return runOrderAction(async () => {
-    const deleted = await db.privateOrder.deleteMany({ where: { id, token, confirmedAt: null } });
+    const deleted = await db.privateOrder.deleteMany({ where: { id, token, confirmedAt: null, cancelledAt: null, monthlyBoxRun: null } });
     if (!deleted.count) throw new OrderError("Der Entwurf ist nicht mehr verfügbar.");
     return "/bestellungen";
   });
@@ -188,7 +165,7 @@ export async function acknowledge(token: string, form: FormData) {
       const order = await tx.privateOrder.findUnique({
         where: { token }, include: { lines: { include: { allocations: true } } },
       });
-      if (!order || order.confirmedAt) throw new OrderError("Dieser Bestätigungslink ist nicht mehr gültig.");
+      if (!order || order.confirmedAt || order.cancelledAt) throw new OrderError("Dieser Bestätigungslink ist nicht mehr gültig.");
       const confirmedAt = new Date();
       for (const allocation of order.lines.flatMap(line => line.allocations).filter(needsConfirmation)) {
         const { lineId, batchId } = allocation;
@@ -205,9 +182,9 @@ export async function finalizeOrder(id: number, token: string, _form: FormData) 
     await db.$transaction(async tx => {
       const order = await tx.privateOrder.findUnique({
         where: { id },
-        include: { customer: true, lines: { include: { product: true, allocations: { include: { batch: true } } } } },
+        include: { monthlyBoxRun: true, customer: true, lines: { include: { product: true, allocations: { include: { batch: true } } } } },
       });
-      if (!order || order.token !== token) throw new OrderError("Dieser Entwurf wurde inzwischen geändert.");
+      if (!order || order.token !== token || order.cancelledAt) throw new OrderError("Dieser Entwurf wurde inzwischen geändert.");
       if (order.confirmedAt) return;
       const allocations = order.lines.flatMap(line => line.allocations);
       if (allocations.some(needsConfirmation)) throw new OrderError("Die Allergenbestätigung fehlt noch.");
@@ -217,25 +194,35 @@ export async function finalizeOrder(id: number, token: string, _form: FormData) 
         throw new OrderError("Eine reservierte Charge ist abgelaufen. Bitte speichere die Zuteilung erneut.");
       }
       const dueOn = order.partnerDiscountPercent !== null ? invoiceDueOn(today) : null;
+      const run = order.monthlyBoxRun;
+      let credit = 0;
+      if (run) {
+        const runs = await tx.monthlyBoxRun.findMany({ where: { boxId: run.boxId }, include: { order: true } });
+        credit = Math.min(order.subtotal, availableBoxCredit(runs, run.month));
+        await tx.monthlyBoxRun.update({ where: { orderId: id }, data: { appliedCent: credit } });
+      }
+      const total = run ? order.subtotal - credit : order.total;
       const body = [
         `Bestellbestätigung #${id}`,
         `Hallo ${order.customer.name},`,
         "wir haben deine Bestellung bestätigt.",
         ...order.lines.map(line => `${line.quantity} × ${line.product.name} · ${euros(line.unitPrice)} je Stück`),
         `Warenwert: ${euros(order.subtotal)}`,
-        ...(dueOn ? [`Zahlung auf Rechnung · Fällig am ${dueOn}`] : [
+        ...(run ? [`Gutschrift: ${euros(credit)}`] : dueOn ? [`Zahlung auf Rechnung · Fällig am ${dueOn}`] : [
           `Treuerabatt: ${euros(order.loyaltyDiscount)}`,
           `Aktionsrabatt: ${euros(order.promotionDiscount)}`,
         ]),
         `Übergabe: ${deliveries[order.delivery]}`,
         `Versandkosten: ${euros(order.shipping)}`,
-        `Gesamtbetrag: ${euros(order.total)}`,
+        `Gesamtbetrag: ${euros(total)}`,
       ].join("\n");
       await tx.privateOrder.update({
         where: { id },
         data: {
-          confirmedAt, message: { create: { body } },
-          payment: dueOn ? { create: { method: "invoice", status: "open", dueOn } } : undefined,
+          confirmedAt, total, message: { create: { body } },
+          payment: dueOn ? { create: { method: "invoice", status: "open", dueOn } }
+            : run && total === 0 ? { create: { method: "credit", status: "paid" } }
+            : undefined,
         },
       });
     });

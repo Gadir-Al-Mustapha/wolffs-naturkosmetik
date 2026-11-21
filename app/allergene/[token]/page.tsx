@@ -24,7 +24,7 @@ export default async function Allergens({ params }: { params: Promise<{ token: s
   return (
     <main className="shell order-stack allergen-page">
       <h1>Allergeninformationen</h1>
-      {!order || !affected.length ? (
+      {!order || order.cancelledAt || !affected.length ? (
         <section className="panel"><p>Dieser Bestätigungslink ist nicht verfügbar. Bitte wende dich an Wolff’s Naturkosmetik.</p></section>
       ) : (
         <>

@@ -96,6 +96,7 @@ model PrivateOrder {
   handedOffAt DateTime?
   pickupOn String?
   trackingNumber String?
+  monthlyBoxRun MonthlyBoxRun?
 }
 
 model OrderLine {
@@ -155,6 +156,7 @@ model MonthlyBox {
   priceCent       Int
   activatedAt     DateTime?
   pauses          MonthlyBoxPause[]
+  runs            MonthlyBoxRun[]
 }
 
 model MonthlyBoxPause {
@@ -167,4 +169,17 @@ model MonthlyBoxPause {
   id Int @id @default(autoincrement())
 
   @@index([boxId, startMonth])
+}
+
+model MonthlyBoxRun {
+  boxId         Int
+  box           MonthlyBox    @relation(fields: [boxId], references: [id])
+  month         Int
+  orderId       Int?          @unique
+  order         PrivateOrder? @relation(fields: [orderId], references: [id])
+  failureReason String?
+  creditCent    Int           @default(0)
+  appliedCent   Int           @default(0)
+
+  @@id([boxId, month])
 }

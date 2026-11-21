@@ -20,14 +20,14 @@ export default async function Orders({ searchParams }: {
     db.product.findMany({ orderBy: { name: "asc" }, include: { batches: { include: { allocations: { where: { line: { order: reservingOrders } } } } } } }),
     db.privateOrder.findMany({
       orderBy: { id: "desc" },
-      include: { customer: true, message: true, reminder: true, payment: true, lines: {
+      include: { monthlyBoxRun: true, customer: true, message: true, reminder: true, payment: true, lines: {
         include: { product: true, allocations: { include: { batch: true }, orderBy: { batch: { bestBefore: "asc" } } } },
       } },
     }),
     db.promotion.findMany({ orderBy: { code: "asc" } }),
   ]);
   const selected = orders.find(order => order.id === id);
-  const draft = selected?.confirmedAt ? undefined : selected;
+  const draft = selected?.confirmedAt || selected?.cancelledAt ? undefined : selected;
   const waiting = draft?.lines.some(line => line.allocations.some(needsConfirmation));
   const affected = draft?.lines.flatMap(line => line.allocations).some(allocation =>
     needsConfirmation({ ...allocation, confirmedAt: null }),
@@ -98,7 +98,9 @@ export default async function Orders({ searchParams }: {
                 </div>
                 <dl className="order-totals">
                   <dt>Warenwert</dt><dd>{euros(selected.subtotal)}</dd>
-                  {selected.partnerDiscountPercent === null && <>
+                  {selected.monthlyBoxRun ? <>
+                    <dt>Monatsbox-Gutschrift</dt><dd>{euros(selected.monthlyBoxRun.appliedCent)}</dd>
+                  </> : selected.partnerDiscountPercent === null && <>
                     <dt>Treuerabatt</dt><dd>{euros(selected.loyaltyDiscount)}</dd>
                     <dt>Aktionsrabatt {selected.code}</dt><dd>{euros(selected.promotionDiscount)}</dd>
                   </>}
@@ -114,12 +116,14 @@ export default async function Orders({ searchParams }: {
                       {waiting && <>{" · "}<a className="text-link" href={`?auftrag=${draft.id}`}>Status aktualisieren</a></>}
                     </p>}
                     {!waiting && <OrderForm action={finalizeOrder.bind(null, draft.id, draft.token)} submit={draft.partnerDiscountPercent !== null ? "Auf Rechnung bestätigen" : "Verbindlich bestätigen"} />}
-                    <OrderForm action={discardOrder.bind(null, draft.id, draft.token)} submit="Entwurf verwerfen" secondary />
+                    {draft.monthlyBoxRun
+                      ? <a className="text-link" href={`/monatsbox#box-${draft.monthlyBoxRun.boxId}`}>Zur Monatsbox</a>
+                      : <OrderForm action={discardOrder.bind(null, draft.id, draft.token)} submit="Entwurf verwerfen" secondary />}
                   </div>
                 )}
               </section>
             )}
-            {!selected?.confirmedAt && (
+            {!selected?.confirmedAt && !selected?.monthlyBoxRun && (
               <section className="panel">
                 <h2>{draft ? "Entwurf bearbeiten" : "Neue Bestellung"}</h2>
                 {!products.length ? (

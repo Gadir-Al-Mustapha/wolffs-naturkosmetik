@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  berlinMonth, boxProductIds, monthlyBoxPriceCent, schedulePause, selectedPause,
+  availableBoxCredit, berlinMonth, boxDue, boxProductIds, monthlyBoxPriceCent, readBoxCredit, schedulePause, selectedPause,
 } from "../lib/monthly-box.ts";
 
 const month = (date) => berlinMonth(new Date(date));
@@ -48,4 +48,41 @@ test("SPEC § 7: early resumption counts elapsed pause months and prevents chain
   assert.deepEqual(schedulePause(history, january + 1, 2), {
     startMonth: january + 2, endMonth: january + 4,
   });
+});
+
+test("F-007 starts in the Berlin activation month, skips pauses, and allows immediate resumption", () => {
+  const activation = new Date("2026-10-31T23:30:00Z");
+  const november = berlinMonth(activation);
+  const pause = { startMonth: november + 1, endMonth: november + 3, resumedAt: null };
+  assert.equal(boxDue(null, [], november), false);
+  assert.equal(boxDue(activation, [], november - 1), false);
+  assert.equal(boxDue(activation, [pause], november), true);
+  assert.equal(boxDue(activation, [pause], november + 1), false);
+  assert.equal(boxDue(activation, [pause], november + 2), false);
+  assert.equal(boxDue(activation, [pause], november + 3), true);
+  assert.equal(boxDue(activation, [{ ...pause, resumedAt: new Date("2027-01-02") }], november + 2), true);
+});
+
+test("F-007 accepts a positive credit up to the box price in exact cents", () => {
+  assert.equal(readBoxCredit("0,01"), 1);
+  assert.equal(readBoxCredit("12.3"), 1230);
+  assert.equal(readBoxCredit("39"), 3900);
+  for (const invalid of ["", "0", "39,01", "-10", "1e1", "12,345"]) assert.equal(readBoxCredit(invalid), null);
+});
+
+test("F-007 carries credit across months and returns it when a redemption is cancelled", () => {
+  const confirmedAt = new Date();
+  const runs = [
+    { month: 1, creditCent: 3900, appliedCent: 0, order: null },
+    { month: 2, creditCent: 1000, appliedCent: 0, order: null },
+    { month: 4, creditCent: 0, appliedCent: 3900, order: { confirmedAt: null, cancelledAt: null } },
+  ];
+  assert.equal(availableBoxCredit(runs, 1), 0);
+  assert.equal(availableBoxCredit(runs, 2), 3900);
+  assert.equal(availableBoxCredit(runs, 4), 4900);
+  assert.equal(availableBoxCredit(runs, 5), 4900);
+  runs[2].order.confirmedAt = confirmedAt;
+  assert.equal(availableBoxCredit(runs, 5), 1000);
+  runs[2].order.cancelledAt = new Date();
+  assert.equal(availableBoxCredit(runs, 5), 4900);
 });

@@ -56,3 +56,28 @@ export function boxProductIds(values: FormDataEntryValue[]) {
   return ids.length === 4 && new Set(ids).size === 4 &&
     ids.every((id) => Number.isSafeInteger(id) && id > 0) ? ids : null;
 }
+
+export function boxDue(activatedAt: Date | null, pauses: BoxPause[], month: number) {
+  return !!activatedAt && berlinMonth(activatedAt) <= month && !pauses.some(pause =>
+    pause.startMonth <= month && month < pause.endMonth &&
+    (!pause.resumedAt || berlinMonth(pause.resumedAt) > month),
+  );
+}
+
+export function readBoxCredit(value: string) {
+  if (!/^\d{1,2}(?:[.,]\d{1,2})?$/.test(value)) return null;
+  const [euros, cents = ""] = value.split(/[.,]/);
+  const credit = Number(euros) * 100 + Number(cents.padEnd(2, "0"));
+  return credit > 0 && credit <= monthlyBoxPriceCent ? credit : null;
+}
+
+export function availableBoxCredit(runs: {
+  month: number;
+  creditCent: number;
+  appliedCent: number;
+  order: { confirmedAt: Date | null; cancelledAt: Date | null } | null;
+}[], month: number) {
+  return Math.max(0, runs.reduce((balance, run) =>
+    balance + (run.month < month ? run.creditCent : 0) -
+    (run.month !== month && run.order?.confirmedAt && !run.order.cancelledAt ? run.appliedCent : 0), 0));
+}
