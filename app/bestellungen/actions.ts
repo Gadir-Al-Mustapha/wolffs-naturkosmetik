@@ -1,11 +1,11 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "../../lib/db";
 import { todayInBerlin } from "../../lib/inventory";
-import { allocate, availableBatches, deliveries, euros, needsConfirmation, orderPrices, promotionCode } from "../../lib/orders";
+import { allocate, availableBatches, deliveries, euros, invoiceDueOn, needsConfirmation, orderPrices, partnerPriceApplies, partnerUnitPrice, promotionCode } from "../../lib/orders";
 
 class OrderError extends Error {
   constructor(message: string, readonly field?: string) {
@@ -14,6 +14,13 @@ class OrderError extends Error {
 }
 
 const text = (form: FormData, field: string) => String(form.get(field) ?? "").trim();
+
+function ownerAuthorized(candidate: FormDataEntryValue | null) {
+  const secret = process.env.OWNER_APPROVAL_SECRET;
+  if (!secret || typeof candidate !== "string") return false;
+  const digest = (value: string) => createHash("sha256").update(value).digest();
+  return timingSafeEqual(digest(candidate), digest(secret));
+}
 
 async function runOrderAction(work: () => Promise<string | void>) {
   let destination: string | void;
@@ -35,7 +42,8 @@ function readCode(form: FormData) {
   try {
     return promotionCode(text(form, "code"));
   } catch (error) {
-    throw new OrderError(error.message, "code");
+    if (error instanceof Error) throw new OrderError(error.message, "code");
+    throw error;
   }
 }
 
@@ -79,10 +87,38 @@ export async function saveOrder(id: number | null, revision: string, form: FormD
       const customerId = Number(text(form, "customer"));
       const name = text(form, "name");
       if (!customerId && name.length > 120) throw new OrderError("Bitte kürze den Namen auf höchstens 120 Zeichen.", "customer");
+      if (customerId && (!Number.isSafeInteger(customerId) || customerId < 1 || customerId > 2_147_483_647)) {
+        throw new OrderError("Bitte wähle einen gültigen Kundeneintrag.", "customer");
+      }
+      const newPartner = !customerId && text(form, "customerType") === "partner";
+      const percent = text(form, "partnerPercent");
+      if (newPartner && (!/^\d{1,3}$/.test(percent) || Number(percent) > 100)) {
+        throw new OrderError("Bitte gib einen ganzen Prozentsatz von 0 bis 100 ein.", "partnerPercent");
+      }
       const customer = customerId
         ? await tx.customer.findUnique({ where: { id: customerId } })
-        : name && await tx.customer.create({ data: { name, loyal: form.has("loyal") } });
+        : name && await tx.customer.create({ data: { name, loyal: !newPartner && form.has("loyal"), partnerDiscountPercent: newPartner ? Number(percent) : null } });
       if (!customer) throw new OrderError("Bitte wähle eine Kundin oder gib einen Namen ein.", "customer");
+      const partnerDiscountPercent = customer.partnerDiscountPercent;
+      const partner = partnerDiscountPercent !== null;
+      const partnerExceptionReason = text(form, "partnerExceptionReason");
+      const approval = form.get("ownerApproval");
+      if ((partnerExceptionReason || approval) && !partner) {
+        throw new OrderError("Die Ausnahme ist nur für Wiederverkäufer vorgesehen.", "partnerExceptionReason");
+      }
+      if ((approval && !partnerExceptionReason) || partnerExceptionReason.length > 1000) {
+        throw new OrderError("Bitte gib eine Begründung mit höchstens 1.000 Zeichen ein.", "partnerExceptionReason");
+      }
+      let partnerPriceApplied = false;
+      if (partner) {
+        if (code) throw new OrderError("Aktionscodes gelten für Privatbestellungen.", "code");
+        try {
+          partnerPriceApplied = partnerPriceApplies(quantities.values(), partnerExceptionReason, ownerAuthorized(approval));
+        } catch (error) {
+          if (error instanceof Error) throw new OrderError(error.message, "partnerExceptionReason");
+          throw error;
+        }
+      }
       const promotion = code ? await tx.promotion.findUnique({ where: { code } }) : null;
       if (code && !promotion) throw new OrderError("Dieser Aktionscode ist unbekannt.", "code");
 
@@ -101,7 +137,10 @@ export async function saveOrder(id: number | null, revision: string, form: FormD
         const assignments = allocate(availableBatches(product.batches), quantity, today);
         if (!assignments) throw new OrderError(`Für „${product.name}“ sind weniger als ${quantity} Stück verfügbar.`, "quantities");
         return {
-          productId: product.id, quantity, unitPrice: product.standardPriceCent,
+          productId: product.id, quantity,
+          unitPrice: partnerPriceApplied
+            ? partnerUnitPrice(product.standardPriceCent, partnerDiscountPercent!)
+            : product.standardPriceCent,
           allocations: { create: assignments.map(({ batch, quantity }) => ({
             batchId: batch.id, quantity,
             ingredients: batch.ingredients.map(({ name, isAllergen, note }) => ({ name, isAllergen, note })),
@@ -112,9 +151,10 @@ export async function saveOrder(id: number | null, revision: string, form: FormD
       if (!Number.isSafeInteger(subtotal) || subtotal > 2_147_483_257) {
         throw new OrderError("Der Bestellwert ist zu hoch.");
       }
-      const prices = orderPrices(subtotal, customer.loyal, delivery, promotion);
+      const prices = orderPrices(subtotal, customer.loyal, delivery, promotion, partner);
       const data = {
-        ...prices, delivery, customerId: customer.id, loyal: customer.loyal, code: code || null,
+        ...prices, partnerDiscountPercent, partnerPriceApplied,
+        partnerExceptionReason: partnerExceptionReason || null, delivery, customerId: customer.id, loyal: customer.loyal, code: code || null,
         token: id ? randomUUID() : revision,
         promotionExcluded: !!promotion && customer.loyal && !promotion.combinable,
       };
@@ -165,24 +205,32 @@ export async function finalizeOrder(id: number, token: string, _form: FormData) 
       if (order.confirmedAt) return;
       const allocations = order.lines.flatMap(line => line.allocations);
       if (allocations.some(needsConfirmation)) throw new OrderError("Die Allergenbestätigung fehlt noch.");
-      const today = todayInBerlin();
+      const confirmedAt = new Date();
+      const today = todayInBerlin(confirmedAt);
       if (allocations.some(({ batch }) => batch.bestBefore < today)) {
         throw new OrderError("Eine reservierte Charge ist abgelaufen. Bitte speichere die Zuteilung erneut.");
       }
+      const dueOn = order.partnerDiscountPercent !== null ? invoiceDueOn(today) : null;
       const body = [
         `Bestellbestätigung #${id}`,
         `Hallo ${order.customer.name},`,
         "wir haben deine Bestellung bestätigt.",
         ...order.lines.map(line => `${line.quantity} × ${line.product.name} · ${euros(line.unitPrice)} je Stück`),
         `Warenwert: ${euros(order.subtotal)}`,
-        `Treuerabatt: ${euros(order.loyaltyDiscount)}`,
-        `Aktionsrabatt: ${euros(order.promotionDiscount)}`,
+        ...(dueOn ? [`Zahlung auf Rechnung · Fällig am ${dueOn}`] : [
+          `Treuerabatt: ${euros(order.loyaltyDiscount)}`,
+          `Aktionsrabatt: ${euros(order.promotionDiscount)}`,
+        ]),
         `Übergabe: ${deliveries[order.delivery]}`,
         `Versandkosten: ${euros(order.shipping)}`,
         `Gesamtbetrag: ${euros(order.total)}`,
       ].join("\n");
       await tx.privateOrder.update({
-        where: { id }, data: { confirmedAt: new Date(), message: { create: { body } } },
+        where: { id },
+        data: {
+          confirmedAt, message: { create: { body } },
+          payment: dueOn ? { create: { method: "invoice", status: "open", dueOn } } : undefined,
+        },
       });
     });
     return `/bestellungen?auftrag=${id}#testpostfach`;

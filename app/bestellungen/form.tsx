@@ -21,7 +21,7 @@ export function OrderForm({ action, children, submit, secondary = false }: {
     async (_previous: State, data: FormData) => action(data), {},
   );
   return (
-    <form className="form-fields" onSubmit={event => {
+    <form method="post" className="form-fields" onSubmit={event => {
       event.preventDefault();
       const data = new FormData(event.currentTarget);
       startTransition(() => dispatch(data));

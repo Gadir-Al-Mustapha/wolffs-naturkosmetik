@@ -17,7 +17,7 @@ export default async function Orders({ searchParams }: {
     db.product.findMany({ orderBy: { name: "asc" }, include: { batches: { include: { allocations: true } } } }),
     db.privateOrder.findMany({
       orderBy: { id: "desc" },
-      include: { customer: true, message: true, lines: {
+      include: { customer: true, message: true, payment: true, lines: {
         include: { product: true, allocations: { include: { batch: true }, orderBy: { batch: { bestBefore: "asc" } } } },
       } },
     }),
@@ -43,7 +43,7 @@ export default async function Orders({ searchParams }: {
       </header>
       <main className="shell">
         <div className="page-heading">
-          <div><h1>Privatbestellungen</h1><p>Ware zuteilen, Preise prüfen und Bestellungen bestätigen.</p></div>
+          <div><h1>Bestellungen</h1><p>Ware zuteilen, Preise prüfen und Bestellungen bestätigen.</p></div>
           {selected && <a href="/bestellungen" className="button"><ClipboardList size={18} aria-hidden="true" /> Neue Bestellung</a>}
         </div>
 
@@ -58,6 +58,13 @@ export default async function Orders({ searchParams }: {
                   </span>
                 </div>
                 <p>{selected.customer.name} · {deliveries[selected.delivery]}</p>
+                {selected.partnerDiscountPercent !== null && <p>
+                  Wiederverkauf · {selected.partnerPriceApplied
+                    ? `Partnerpreis mit ${selected.partnerDiscountPercent} % Nachlass`
+                    : "Standardpreis bei weniger als 50 Stück"}
+                </p>}
+                {selected.partnerExceptionReason && <p>Genehmigte Ausnahme · {selected.partnerExceptionReason}</p>}
+                {selected.payment && <p>Rechnung offen · Fällig am {selected.payment.dueOn}</p>}
                 <div className="table-scroll">
                   <table>
                     <thead><tr><th>Produkt und Chargen</th><th className="numeric">Einzelpreis</th></tr></thead>
@@ -84,8 +91,10 @@ export default async function Orders({ searchParams }: {
                 </div>
                 <dl className="order-totals">
                   <dt>Warenwert</dt><dd>{euros(selected.subtotal)}</dd>
-                  <dt>Treuerabatt</dt><dd>{euros(selected.loyaltyDiscount)}</dd>
-                  <dt>Aktionsrabatt {selected.code}</dt><dd>{euros(selected.promotionDiscount)}</dd>
+                  {selected.partnerDiscountPercent === null && <>
+                    <dt>Treuerabatt</dt><dd>{euros(selected.loyaltyDiscount)}</dd>
+                    <dt>Aktionsrabatt {selected.code}</dt><dd>{euros(selected.promotionDiscount)}</dd>
+                  </>}
                   <dt>Versandkosten</dt><dd>{euros(selected.shipping)}</dd>
                   <dt><strong>Gesamtbetrag</strong></dt><dd><strong>{euros(selected.total)}</strong></dd>
                 </dl>
@@ -97,7 +106,7 @@ export default async function Orders({ searchParams }: {
                       <a className="text-link" href={`/allergene/${draft.token}`} target="_blank" rel="noreferrer">Privaten Bestätigungslink öffnen</a>
                       {waiting && <>{" · "}<a className="text-link" href={`?auftrag=${draft.id}`}>Status aktualisieren</a></>}
                     </p>}
-                    {!waiting && <OrderForm action={finalizeOrder.bind(null, draft.id, draft.token)} submit="Verbindlich bestätigen" />}
+                    {!waiting && <OrderForm action={finalizeOrder.bind(null, draft.id, draft.token)} submit={draft.partnerDiscountPercent !== null ? "Auf Rechnung bestätigen" : "Verbindlich bestätigen"} />}
                     <OrderForm action={discardOrder.bind(null, draft.id, draft.token)} submit="Entwurf verwerfen" secondary />
                   </div>
                 )}
@@ -111,17 +120,27 @@ export default async function Orders({ searchParams }: {
                 ) : (
                   <OrderForm key={draft?.token ?? "new"} action={saveOrder.bind(null, draft?.id ?? null, draft?.token ?? randomUUID())}
                     submit={draft ? "Zuteilung neu speichern" : "Chargen zuteilen und Preise berechnen"}>
-                    <label className="field">Kundin
-                      <select name="customer" aria-label="Kundin" defaultValue={draft?.customerId ?? ""}>
-                        <option value="">Neue Kundin anlegen</option>
+                    <label className="field">Kunde oder Wiederverkäufer
+                      <select name="customer" defaultValue={draft?.customerId ?? ""}>
+                        <option value="">Neuen Kontakt anlegen</option>
                         {customers.map(customer => <option key={customer.id} value={customer.id}>
-                          {customer.name}{customer.loyal ? " · Stammkundin" : ""}
+                          {customer.name}{customer.partnerDiscountPercent !== null ? ` · Wiederverkauf (${customer.partnerDiscountPercent} %)` : customer.loyal ? " · Stammkundin" : ""}
                         </option>)}
                       </select>
                     </label>
                     <label className="field">Name bei Neuanlage <input name="name" maxLength={120} /></label>
                     <FieldError field="customer" />
+                    <label className="field">Kundenart bei Neuanlage
+                      <select name="customerType">
+                        <option value="private">Privat</option>
+                        <option value="partner">Wiederverkauf</option>
+                      </select>
+                    </label>
                     <label className="check"><input type="checkbox" name="loyal" /> Stammkundin bei Neuanlage</label>
+                    <label className="field">Partnernachlass bei Neuanlage (%)
+                      <input name="partnerPercent" type="number" min="0" max="100" step="1" />
+                    </label>
+                    <FieldError field="partnerPercent" />
                     <fieldset className="ingredient-picker">
                       <legend>Stückzahl je Produkt *</legend>
                       <FieldError field="quantities" />
@@ -149,6 +168,18 @@ export default async function Orders({ searchParams }: {
                     <FieldError field="delivery" />
                     <label className="field">Aktionscode <input name="code" defaultValue={draft?.code ?? ""} /></label>
                     <FieldError field="code" />
+                    <details className="batch-form" open={Boolean(draft?.partnerExceptionReason)}>
+                      <summary>Partnerpreis unter 50 Stück genehmigen</summary>
+                      <div className="form-fields">
+                        <label className="field">Begründung der Inhaberin
+                          <textarea name="partnerExceptionReason" maxLength={1000} defaultValue={draft?.partnerExceptionReason ?? ""} />
+                        </label>
+                        <label className="field">Freigabekennwort der Inhaberin
+                          <input name="ownerApproval" type="password" autoComplete="off" />
+                        </label>
+                      </div>
+                    </details>
+                    <FieldError field="partnerExceptionReason" />
                     {draft && affected && <p className="muted">Beim erneuten Speichern wird ein neuer Bestätigungslink für die Zuteilung erstellt.</p>}
                   </OrderForm>
                 )}

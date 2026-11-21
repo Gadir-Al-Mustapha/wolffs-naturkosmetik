@@ -61,7 +61,7 @@ details .entry-form { margin-top: 1rem; }
 .form-fields, .date-fields { display: grid; gap: .85rem; min-width: 0; }
 .date-fields { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
 .field { display: grid; gap: .3rem; font-weight: 600; min-width: 0; }
-.field input { width: 100%; min-width: 0; background: #fffef9; border: 1px solid #a8aa9c; border-radius: .5rem; padding: .55rem .7rem; font-weight: 400; }
+.field input, .field textarea { width: 100%; min-width: 0; background: #fffef9; border: 1px solid #a8aa9c; border-radius: .5rem; padding: .55rem .7rem; font-weight: 400; }
 .ingredient-picker { border: 1px solid var(--line); padding: .55rem .75rem; border-radius: .5rem; }
 .ingredient-picker legend { padding-inline: .25rem; font-weight: 600; }
 .check { display: flex; align-items: center; gap: .5rem; min-height: 2rem; flex-wrap: wrap; }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { allocate, availableBatches, needsConfirmation, orderPrices, promotionCode } from "../lib/orders.ts";
+import { allocate, availableBatches, invoiceDueOn, needsConfirmation, orderPrices, partnerPriceApplies, partnerUnitPrice, promotionCode } from "../lib/orders.ts";
 
 test("BR1: DHL compares discounted merchandise to the exact threshold", () => {
   const promotion = { percent: 20, combinable: true };
@@ -42,4 +42,23 @@ test("BR5: confirmation is required individually for allergenic allocations", ()
   assert.equal(needsConfirmation(allergic), true);
   assert.equal(needsConfirmation({ ...allergic, confirmedAt: new Date() }), false);
   assert.equal(needsConfirmation({ ...allergic, confirmedAt: null }), true);
+});
+
+test("BR1: partner DHL is free even below 39 euros and the 50-unit threshold", () => {
+  assert.equal(partnerPriceApplies([20, 29], "", false), false);
+  for (const delivery of ["dhl", "bicycle", "pickup"]) {
+    assert.equal(orderPrices(3000, false, delivery, null, true).shipping, 0);
+  }
+});
+
+test("BR3: aggregate all lines and require owner approval with a reason for exceptions", () => {
+  assert.equal(partnerPriceApplies([20, 29], "", false), false);
+  assert.equal(partnerPriceApplies([20, 30], "", false), true);
+  assert.equal(partnerPriceApplies([30], "", true), false);
+  assert.throws(() => partnerPriceApplies([30], "Kulanz", false), /Freigabe/);
+  assert.equal(partnerPriceApplies([30], "Kulanz", true), true);
+  assert.throws(() => partnerPriceApplies([50], "Kulanz", true), /automatisch/);
+  assert.equal(partnerUnitPrice(1199, 15), 1019);
+  assert.equal(invoiceDueOn("2026-10-20"), "2026-11-19");
+  assert.equal(invoiceDueOn("2026-12-20"), "2027-01-19");
 });

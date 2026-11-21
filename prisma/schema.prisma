@@ -54,6 +54,7 @@ model Customer {
   id     Int            @id @default(autoincrement())
   name   String
   loyal  Boolean
+  partnerDiscountPercent Int?
   orders PrivateOrder[]
 }
 
@@ -81,6 +82,10 @@ model PrivateOrder {
   total             Int
   lines             OrderLine[]
   message           TestConfirmation?
+  partnerDiscountPercent Int?
+  partnerPriceApplied Boolean @default(false)
+  partnerExceptionReason String?
+  payment Payment?
 }
 
 model OrderLine {
@@ -112,4 +117,12 @@ model TestConfirmation {
   order     PrivateOrder @relation(fields: [orderId], references: [id])
   body      String
   createdAt DateTime     @default(now())
+}
+
+model Payment {
+  orderId Int @id
+  order PrivateOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  method String
+  status String
+  dueOn String
 }

@@ -22,13 +22,14 @@ export function orderPrices(
   loyal: boolean,
   delivery: keyof typeof deliveries,
   promotion?: { percent: number; combinable: boolean } | null,
+  partner = false,
 ) {
   const loyaltyDiscount = loyal ? Math.round(subtotal / 10) : 0;
   const promotionDiscount = promotion && (!loyal || promotion.combinable)
     ? Math.round((subtotal - loyaltyDiscount) * promotion.percent / 100)
     : 0;
   const merchandise = subtotal - loyaltyDiscount - promotionDiscount;
-  const shipping = delivery === "dhl" && !loyal && merchandise < 3900 ? 390 : 0;
+  const shipping = delivery === "dhl" && !partner && !loyal && merchandise < 3900 ? 390 : 0;
   return { subtotal, loyaltyDiscount, promotionDiscount, shipping, total: merchandise + shipping };
 }
 
@@ -59,4 +60,27 @@ export type IngredientInfo = { name: string; isAllergen: boolean; note: string |
 
 export function needsConfirmation(allocation: { ingredients: unknown; confirmedAt: Date | null }) {
   return !allocation.confirmedAt && (allocation.ingredients as IngredientInfo[]).some(item => item.isAllergen);
+}
+
+export function partnerPriceApplies(
+  quantities: Iterable<number>, reason: string, ownerAuthorized: boolean,
+) {
+  const units = Array.from(quantities).reduce((sum, quantity) => sum + quantity, 0);
+  if (units >= 50) {
+    if (reason) throw new Error("Ab 50 Stück gilt der Partnerpreis automatisch.");
+    return true;
+  }
+  if (!reason) return false;
+  if (!ownerAuthorized) throw new Error("Die Ausnahme benötigt die Freigabe der Inhaberin.");
+  return true;
+}
+
+export function partnerUnitPrice(standardPrice: number, percent: number) {
+  return Math.round(standardPrice * (100 - percent) / 100);
+}
+
+export function invoiceDueOn(confirmedOn: string) {
+  const due = new Date(confirmedOn);
+  due.setUTCDate(due.getUTCDate() + 30);
+  return due.toISOString().slice(0, 10);
 }
