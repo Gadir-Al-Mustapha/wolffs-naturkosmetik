@@ -15,6 +15,7 @@ const deliveryStatus: Record<string, string> = {
   sending: "Wird verarbeitet",
   simulated: "Im lokalen Testpostfach abgelegt",
   sent: "Vom Versanddienst angenommen",
+  skipped: "Versand eingestellt",
   failed: "Versand fehlgeschlagen",
 };
 
@@ -37,7 +38,7 @@ export default async function Orders({ searchParams }: {
     db.privateOrder.findMany({
       orderBy: { id: "desc" },
       include: { monthlyBoxRun: true, customer: true, message: true, reminder: true, payment: true,
-        outgoingMessages: { where: { kind: "order-confirmation" } }, lines: {
+        outgoingMessages: { orderBy: { nextAttempt: "asc" } }, lines: {
         include: { product: true, allocations: { include: { batch: true }, orderBy: { batch: { bestBefore: "asc" } } } },
       } },
     }),
@@ -50,7 +51,7 @@ export default async function Orders({ searchParams }: {
     needsConfirmation({ ...allocation, confirmedAt: null }),
   );
   const today = todayInBerlin();
-  const confirmations = orders.flatMap(order => order.outgoingMessages);
+  const messages = orders.flatMap(order => order.outgoingMessages);
 
   return (
     <>
@@ -216,9 +217,9 @@ export default async function Orders({ searchParams }: {
             )}
             <section className="panel" id="testpostfach">
               <h2>Bestellnachrichten</h2>
-              {confirmations.length === 0 && orders.every(order => !order.message && !order.reminder) &&
+              {messages.length === 0 && orders.every(order => !order.message && !order.reminder) &&
                 <p className="muted">Sobald eine Bestellung bestätigt ist, erscheint hier ihre Nachricht.</p>}
-              {confirmations.map(message => (
+              {messages.map(message => (
                 <details key={message.id} open={message.orderId === selected?.id}>
                   <summary>{message.subject} · {deliveryStatus[message.status]}</summary>
                   {message.errorCode && <p>{deliveryError[message.errorCode]}</p>}
@@ -227,7 +228,7 @@ export default async function Orders({ searchParams }: {
               ))}
               {orders.filter(order => order.reminder).map(order => (
                 <details key={`reminder-${order.id}`} open={order.id === selected?.id}>
-                  <summary>Zahlungserinnerung #{order.id}</summary>
+                  <summary>Zahlungserinnerung #{order.id} · Im lokalen Testpostfach abgelegt</summary>
                   <pre className="order-message">{order.reminder!.body}</pre>
                 </details>
               ))}

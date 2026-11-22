@@ -28,9 +28,11 @@ Die Ausgabe zeigt zuerst das Kennwort für die Verwaltung und dann das Kennwort 
 - [Verwaltung öffnen](http://localhost:3000) und mit `OWNER_APPROVAL_SECRET` anmelden. Unter **Produktion** zuerst einen Inhaltsstoff, dann ein Produkt und anschließend eine Charge anlegen. Danach kann unter **Bestellungen** eine Bestellung mit neuer Kundschaft erfasst werden.
 - [Packansicht öffnen](http://localhost:3000/packen) und in einem privaten Browserfenster mit `PACKING_SECRET` anmelden. Hier erscheinen freigegebene Packaufträge. Die Verwaltung prüft Zahlung und Übergabe unter **Abwicklung**.
 
-## Versand von Privatbestätigungen
+## Versand von Privatbestätigungen und Zahlungserinnerungen
 
 Standardmäßig läuft der Versand lokal. Unter **Bestellungen → Bestellnachrichten** zeigt die Verwaltung die Nachricht nach der Hintergrundverarbeitung als Testnachricht an. Verwende für lokale Prüfungen fiktive Bestellungen.
+
+Zahlungserinnerungen verwenden die E-Mail-Adresse aus der Bestellbestätigung. Fehlt sie im E-Mail-Modus, erscheint ein Versandfehler unter **Bestellnachrichten**.
 
 Für E-Mail müssen beim Start drei Umgebungsvariablen gesetzt werden.
 

@@ -29,7 +29,7 @@
 ## 2026-11-21 · F-005
 
 - **Fristen (SPEC § 5.1).** Der Tag der verbindlichen Bestätigung zählt als Tag 0, gerechnet in Berliner Kalendertagen. Bei Partnerrechnungen gilt das vorhandene Fälligkeitsdatum einschließlich. Hinweise auf überfällige Rechnungen und offene Forderungen nach Übergabe erscheinen in der Abwicklung, solange die Zahlung offen ist.
-- **Lokale Fristenprüfung und Erinnerung (SPEC § 5.1).** Die App prüft beim Serverstart und danach einmal pro Minute. Während der Server aus ist, ruht die Prüfung. Beim Neustart holt die App fällige Schritte nach. Hat eine Bestellung inzwischen die Stornierungs- oder Mahnfrist erreicht, entfällt die frühere freundliche Erinnerung. Erinnerungen erscheinen je Bestellung einmal im lokalen Testpostfach. Der Kanal für den echten Versand bleibt offen.
+- **Lokale Fristenprüfung und Erinnerung (SPEC § 5.1).** Die App prüft beim Serverstart und danach einmal pro Minute. Während der Server aus ist, ruht die Prüfung. Beim Neustart holt die App fällige Schritte nach. Hat eine Bestellung inzwischen die Stornierungs- oder Mahnfrist erreicht, entfällt die frühere freundliche Erinnerung.
 - **Bestandsfreigabe (SPEC § 8.6).** Eine Stornierung lässt Bestellung, Chargenzuteilung und gegebenenfalls Allergenbestätigungen zur Nachverfolgung erhalten. Ab der Stornierung zählen die Mengen wieder zum verfügbaren Bestand, soweit die Chargen weiterhin verkäuflich sind. Eine bereits erfasste Übergabe lässt keine Stornierung mit Bestandsfreigabe zu.
 
 ## 2026-11-21 · F-006
@@ -60,3 +60,8 @@
 - **Versandkanal (SPEC § 5.2).** Die SPEC legt keinen Kanal fest. Vorläufig ist der lokale Testmodus Standard. Optional verschickt ein konfigurierbares HTTPS-Gateway Bestätigungen per E-Mail. Die Inhaberin trägt die Adresse beim verbindlichen Abschluss für diese Bestellung ein. Fehlt sie im E-Mail-Modus, bleibt die Bestellung bestätigt und die Verwaltung zeigt den Versandfehler an. Die Einrichtung und der Vertrag des Gateways stehen in der README.
 - **Versandzeitpunkt und Altbestand.** Erst der verbindliche Abschluss nach den vorhandenen Prüfungen schreibt den Versandauftrag zusammen mit der Bestellung. Vorhandene Testnachrichten bleiben sichtbar, ohne einen Versand auszulösen. Der Hintergrundlauf verarbeitet offene Aufträge beim Start und alle fünf Sekunden, solange die App läuft.
 - **Wiederholung.** Ein eindeutiger Auftrag je Bestellung und Nachrichtenart und ein dauerhaft gültiger Schlüssel beim Gateway verhindern doppelte Aufträge und doppelte Annahmen. Vorübergehende oder unklare Fehler führen zu höchstens fünf Versuchen insgesamt. Danach zeigt die Verwaltung das Ergebnis zur Klärung an.
+
+## 2026-11-22 · F-005 Automatische Zahlungserinnerungen
+
+- **Kanal und Adresse (SPEC § 5.1).** Neue Zahlungserinnerungen nutzen den gemeinsamen Versand für Bestellnachrichten und die bei der Bestätigung gespeicherte Adresse. So bleibt die Adresse der Bestellung zugeordnet und Nina sieht fehlende Adressen und Versandfehler im selben Postfach. Der lokale Modus bleibt der Standard. Ältere Einträge im Testpostfach gelten weiterhin als bereits erstellte Erinnerungen.
+- **Prüfung beim Versand.** Der Versandlauf prüft die Zahlungsfrist und den Bestellstatus unmittelbar vor jedem Versuch erneut. Ist die Erinnerung inzwischen hinfällig, zeigt die Verwaltung das an. Das vermeidet weitere Versuche nach Zahlung, Stornierung oder Erreichen der nächsten Frist. Hinweise zu überfälligen Partnerrechnungen und offenen Forderungen nach Übergabe stehen in der Abwicklung für Nina.

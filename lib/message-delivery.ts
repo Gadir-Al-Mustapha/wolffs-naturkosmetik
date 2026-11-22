@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import type { OutgoingMessage, PrismaClient } from "../generated/prisma/client.ts";
 
+import { todayInBerlin } from "./inventory.ts";
+import { paymentFollowup } from "./payment-deadlines.ts";
+
 const maxAttempts = 5;
 const leaseMs = 60_000;
 
@@ -9,13 +12,21 @@ function gatewayFingerprint(url?: string) {
 }
 
 export function confirmationDelivery(recipient: string, body: string, orderId: number, env = process.env) {
+  return messageDelivery("order-confirmation", recipient, `Bestellbestätigung #${orderId}`, body, env);
+}
+
+export function reminderDelivery(recipient: string, body: string, orderId: number, env = process.env) {
+  return messageDelivery("payment-reminder", recipient, `Zahlungserinnerung #${orderId}`, body, env);
+}
+
+function messageDelivery(kind: string, recipient: string, subject: string, body: string, env: NodeJS.ProcessEnv) {
   const channel = env.WOLFFS_MESSAGE_CHANNEL ?? "local";
   return {
-    kind: "order-confirmation",
+    kind,
     channel,
     gateway: channel === "email" ? gatewayFingerprint(env.WOLFFS_MESSAGE_GATEWAY_URL) : null,
     recipient: recipient || null,
-    subject: `Bestellbestätigung #${orderId}`,
+    subject,
     body,
   };
 }
@@ -76,7 +87,19 @@ export async function dispatchMessages(
     });
     if (!claim.count) continue;
 
-    const result = await deliver(message, env, request);
+    let result: Result;
+    if (message.kind === "payment-reminder") {
+      const order = await db.privateOrder.findUnique({
+        where: { id: message.orderId },
+        include: { payment: true },
+      });
+      if (!order) continue;
+      result = paymentFollowup(order, todayInBerlin(clock())) === "remind"
+        ? await deliver(message, env, request)
+        : { status: "skipped", errorCode: message.attempts > 0 ? "uncertain" : null };
+    } else {
+      result = await deliver(message, env, request);
+    }
     if (result.status === "pending" && attempt === maxAttempts) result.status = "failed";
     await db.outgoingMessage.updateMany({
       where: { id: message.id, status: "sending", attempts: attempt },

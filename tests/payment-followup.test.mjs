@@ -11,6 +11,8 @@ import { handOffOrder } from "../lib/handoff.ts";
 import { availableBatches, allocate, invoiceDueOn } from "../lib/orders.ts";
 import { paymentFollowup, runPaymentFollowup } from "../lib/payment-followup.ts";
 
+import { confirmationDelivery, dispatchMessages } from "../lib/message-delivery.ts";
+
 const confirmedAt = new Date("2026-10-23T22:15:00Z");
 const order = { confirmedAt, cancelledAt: null, handedOffAt: null, loyal: false, partnerDiscountPercent: null, payment: null };
 
@@ -76,7 +78,7 @@ test("BR4 and SPEC 5.1: reminders are unique and cancellation releases only rese
   const draft = await fixture("draft", { confirmedAt: null });
 
   async function reminders() {
-    return (await db.testPaymentReminder.findMany({ orderBy: { orderId: "asc" } })).map(row => row.orderId);
+    return (await db.outgoingMessage.findMany({ where: { kind: "payment-reminder" }, orderBy: { orderId: "asc" } })).map(row => row.orderId);
   }
   async function available() {
     return availableBatches(await db.batch.findMany({ include: {
@@ -84,18 +86,18 @@ test("BR4 and SPEC 5.1: reminders are unique and cancellation releases only rese
     } }));
   }
   assert.equal((await available())[0].quantity, 15);
-  await runPaymentFollowup(db, new Date("2026-10-27T00:00:00Z"));
+  await runPaymentFollowup(db, new Date("2026-10-27T00:00:00Z"), {});
   assert.deepEqual(await reminders(), [regular.id, delivered.id]);
-  await runPaymentFollowup(db, new Date("2026-10-29T00:00:00Z"));
+  await runPaymentFollowup(db, new Date("2026-10-29T00:00:00Z"), {});
   assert.deepEqual(await reminders(), [regular.id, loyal.id, delivered.id]);
 
   const next = new Date("2026-10-31T00:00:00Z");
-  await runPaymentFollowup(db, next);
+  await runPaymentFollowup(db, next, {});
   assert.equal(await db.privateOrder.count({ where: { ...packableOrders, id: loyal.id } }), 1);
   assert.equal((await available())[0].quantity, 16);
   const later = new Date("2026-11-24T00:00:00Z");
-  await runPaymentFollowup(db, later);
-  await runPaymentFollowup(db, later);
+  await runPaymentFollowup(db, later, {});
+  await runPaymentFollowup(db, later, {});
 
   const stored = await db.privateOrder.findMany({ include: { payment: true }, orderBy: { id: "asc" } });
   assert.deepEqual(stored.map(row => [row.id, row.cancelledAt]), [
@@ -112,4 +114,48 @@ test("BR4 and SPEC 5.1: reminders are unique and cancellation releases only rese
   assert.equal(await db.privateOrder.count({ where: { ...packableOrders, id: loyal.id } }), 0);
   assert.equal(fulfillmentPermissions(stored[1]).canPack, false);
   await assert.rejects(handOffOrder(db, loyal.id, new FormData(), later), /Zahlungsfreigabe/);
+
+  let now = new Date("2026-11-26T10:00:00Z");
+  const clock = () => now;
+  const env = {
+    WOLFFS_MESSAGE_CHANNEL: "email",
+    WOLFFS_MESSAGE_GATEWAY_URL: "https://gateway.example.invalid/send",
+    WOLFFS_MESSAGE_GATEWAY_TOKEN: "fiktiv",
+  };
+  const confirmedOn = new Date("2026-11-23T10:00:00Z");
+  const email = await fixture("email", { confirmedAt: confirmedOn });
+  const newlyPaid = await fixture("newly-paid", { confirmedAt: confirmedOn });
+  const missing = await fixture("missing-address", { confirmedAt: confirmedOn });
+  const legacy = await fixture("legacy", { confirmedAt: confirmedOn, reminder: { create: { body: "Testnachricht" } } });
+  const expired = await fixture("expired", { confirmedAt: new Date("2026-11-20T10:00:00Z") });
+  for (const customer of [email, newlyPaid, expired]) {
+    await db.outgoingMessage.create({ data: {
+      ...confirmationDelivery("test@example.invalid", "Testbestätigung", customer.id, env),
+      orderId: customer.id, status: "sent",
+    } });
+  }
+  await runPaymentFollowup(db, now, env);
+  await runPaymentFollowup(db, now, env);
+  await db.payment.create({ data: { orderId: newlyPaid.id, method: "unspecified", status: "paid", paidAt: now } });
+
+  now = new Date("2026-11-27T10:00:00Z");
+  const attempts = [];
+  const request = async (_url, options) => {
+    const payload = JSON.parse(options.body);
+    assert.equal(payload.to, "test@example.invalid");
+    assert.equal(payload.subject, `Zahlungserinnerung #${email.id}`);
+    attempts.push(options.headers["Idempotency-Key"]);
+    return new Response(null, { status: attempts.length === 1 ? 503 : 202 });
+  };
+  await dispatchMessages(db, clock, env, request);
+  now = new Date(now.getTime() + 60_000);
+  await dispatchMessages(db, clock, env, request);
+  const outgoing = await db.outgoingMessage.findMany({ where: { kind: "payment-reminder" } });
+  const messageFor = order => outgoing.find(message => message.orderId === order.id);
+  assert.equal(messageFor(email).status, "sent");
+  assert.deepEqual(attempts, [messageFor(email).id, messageFor(email).id]);
+  assert.equal(messageFor(newlyPaid).status, "skipped");
+  assert.equal(messageFor(expired).status, "skipped");
+  assert.equal(messageFor(missing).errorCode, "recipient");
+  assert.equal(messageFor(legacy), undefined);
 });
