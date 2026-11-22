@@ -15,6 +15,7 @@ model Product {
   batches           Batch[]
   orderLines        OrderLine[]
   monthlyBoxes      MonthlyBox[]
+  fairRequests      FairRequest[]
 }
 
 model Ingredient {
@@ -35,6 +36,7 @@ model Batch {
   quantity       Int
   ingredients    BatchIngredient[]
   allocations    Allocation[]
+  fairStock      FairStock[]
 
   @@index([productId, bestBefore])
 }
@@ -182,4 +184,35 @@ model MonthlyBoxRun {
   appliedCent   Int           @default(0)
 
   @@id([boxId, month])
+}
+
+model Fair {
+  id          Int           @id @default(autoincrement())
+  name        String
+  eventDate   String
+  dispatchedAt DateTime?
+  closedAt     DateTime?
+  requests    FairRequest[]
+  stock       FairStock[]
+}
+
+model FairRequest {
+  fairId    Int
+  fair      Fair    @relation(fields: [fairId], references: [id])
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+
+  @@id([fairId, productId])
+}
+
+model FairStock {
+  fairId   Int
+  fair     Fair     @relation(fields: [fairId], references: [id])
+  batchId  Int
+  batch    Batch    @relation(fields: [batchId], references: [id])
+  taken    Int
+  returned Int?
+
+  @@id([fairId, batchId])
 }
