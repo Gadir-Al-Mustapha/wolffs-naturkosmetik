@@ -91,3 +91,7 @@ button.secondary:hover:not(:disabled) { background: #e5eee2; }
 
 .fulfillment-status { display: flex; flex-wrap: wrap; gap: .5rem 1rem; margin-block: .5rem; }
 .fulfillment-status .badge { margin-left: .2rem; }
+
+.report-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: 1rem; }
+.report-metrics dt { color: var(--muted); font-size: .875rem; }
+.report-metrics dd { color: var(--green); font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }

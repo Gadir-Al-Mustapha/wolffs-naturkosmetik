@@ -1,7 +1,7 @@
 import { Leaf } from "lucide-react";
 import { signOut } from "./anmeldung/actions";
 
-export function FulfillmentHeader({ packing, active = "abwicklung" }: { packing?: boolean; active?: "abwicklung" | "monatsbox" | "messe" }) {
+export function FulfillmentHeader({ packing, active = "abwicklung" }: { packing?: boolean; active?: "abwicklung" | "monatsbox" | "messe" | "partnerauswertung" }) {
   return (
     <header className="site-header">
       <div className="shell header-inner">
@@ -11,6 +11,7 @@ export function FulfillmentHeader({ packing, active = "abwicklung" }: { packing?
           <a href="/abwicklung" aria-current={active === "abwicklung" ? "page" : undefined}>Abwicklung</a>
           <a href="/monatsbox" aria-current={active === "monatsbox" ? "page" : undefined}>Monatsbox</a>
           <a href="/messe" aria-current={active === "messe" ? "page" : undefined}>Messe</a>
+          <a href="/partnerauswertung" aria-current={active === "partnerauswertung" ? "page" : undefined}>Partnerauswertung</a>
         </nav>}
         <form action={signOut}><button className="secondary">Abmelden</button></form>
       </div>
