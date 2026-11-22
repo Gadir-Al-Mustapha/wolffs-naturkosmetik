@@ -11,6 +11,6 @@ Wenn Turbopack in einer eingeschränkten Prüfumgebung keinen lokalen Port öffn
 
 ## Verbleibende Einschränkungen
 
-- **Nachrichten.** Automatische Bestellbestätigungen und Zahlungserinnerungen werden im lokalen Testpostfach abgelegt. Die Zustellung an Kundschaft fehlt. Die SPEC verlangt die automatische Bestätigung und sieht Zahlungserinnerungen vor. Die Wahl des Zustellkanals bleibt offen. Die Fristenprüfung läuft beim Serverstart und danach einmal pro Minute, solange der Server läuft.
+- **Nachrichten.** F-002 verarbeitet Bestellbestätigungen über ein dauerhaftes Versandpostfach mit lokalem Testmodus und optionalem HTTPS-Gateway. Zahlungserinnerungen erscheinen im lokalen Testpostfach. Die Fristenprüfung läuft beim Serverstart und danach einmal pro Minute, solange der Server läuft.
 - **DHL.** Die Inhaberin erstellt Etiketten mit Adresse außerhalb der App und markiert sie anschließend als bereit. Die Packhilfe bringt das vorbereitete Etikett an. Die Verwaltung erfasst die Trackingnummer. Die SPEC beschreibt diese Rollenverteilung und verlangt keine Schnittstelle für die Etikettenerstellung.
 - **Offene Fachfragen.** Restposten werden markiert. Die Nachlasshöhe ist offen. Die Monatsbox verwendet derzeit den Festpreis mit 0 € Versandkosten. Ob bei DHL die reguläre Versandregel greifen soll, ist für das Abo offen. Weitere Festlegungen zu Rabatten, Reservierungen, Abo und Messe stehen in den [Entscheidungen](decisions.md).

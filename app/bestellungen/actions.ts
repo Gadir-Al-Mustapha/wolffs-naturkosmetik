@@ -1,6 +1,7 @@
 "use server";
 
 import { availableBoxCredit } from "../../lib/monthly-box";
+import { confirmationDelivery } from "../../lib/message-delivery";
 import { allocateOrderLines, OrderError } from "../../lib/order-allocation";
 import { requireRole } from "../../lib/access";
 import { matchesSecret } from "../../lib/session";
@@ -176,7 +177,7 @@ export async function acknowledge(token: string, form: FormData) {
   });
 }
 
-export async function finalizeOrder(id: number, token: string, _form: FormData) {
+export async function finalizeOrder(id: number, token: string, form: FormData) {
   await requireRole("owner");
   return runOrderAction(async () => {
     await db.$transaction(async tx => {
@@ -186,6 +187,11 @@ export async function finalizeOrder(id: number, token: string, _form: FormData) 
       });
       if (!order || order.token !== token || order.cancelledAt) throw new OrderError("Dieser Entwurf wurde inzwischen geändert.");
       if (order.confirmedAt) return;
+      const privateOrder = order.partnerDiscountPercent === null && !order.monthlyBoxRun;
+      const recipient = privateOrder ? text(form, "recipient") : "";
+      if (recipient && (recipient.length > 254 || !/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(recipient))) {
+        throw new OrderError("Bitte gib eine gültige E-Mail-Adresse ein.", "recipient");
+      }
       const allocations = order.lines.flatMap(line => line.allocations);
       if (allocations.some(needsConfirmation)) throw new OrderError("Die Allergenbestätigung fehlt noch.");
       const confirmedAt = new Date();
@@ -219,7 +225,9 @@ export async function finalizeOrder(id: number, token: string, _form: FormData) 
       await tx.privateOrder.update({
         where: { id },
         data: {
-          confirmedAt, total, message: { create: { body } },
+          confirmedAt, total,
+          message: privateOrder ? undefined : { create: { body } },
+          outgoingMessages: privateOrder ? { create: confirmationDelivery(recipient, body, id) } : undefined,
           payment: dueOn ? { create: { method: "invoice", status: "open", dueOn } }
             : run && total === 0 ? { create: { method: "credit", status: "paid" } }
             : undefined,

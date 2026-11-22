@@ -10,6 +10,21 @@ import { availableBatches, deliveries, euros, needsConfirmation } from "../../li
 import { discardOrder, finalizeOrder, saveOrder, savePromotion } from "./actions";
 import { FieldError, OrderForm } from "./form";
 
+const deliveryStatus: Record<string, string> = {
+  pending: "Wartet auf Versand",
+  sending: "Wird verarbeitet",
+  simulated: "Im lokalen Testpostfach abgelegt",
+  sent: "Vom Versanddienst angenommen",
+  failed: "Versand fehlgeschlagen",
+};
+
+const deliveryError: Record<string, string> = {
+  recipient: "Für diese Bestellung wurde keine E-Mail-Adresse angegeben.",
+  configuration: "Die Einstellungen des Versandkanals sind unvollständig oder wurden geändert.",
+  rejected: "Der Versanddienst hat die Nachricht abgelehnt.",
+  uncertain: "Der Versanddienst hat den Empfang nicht bestätigt.",
+};
+
 export default async function Orders({ searchParams }: {
   searchParams: Promise<{ auftrag?: string }>;
 }) {
@@ -21,7 +36,8 @@ export default async function Orders({ searchParams }: {
     db.product.findMany({ orderBy: { name: "asc" }, include: { batches: { include: { allocations: { where: { line: { order: reservingOrders } } } } } } }),
     db.privateOrder.findMany({
       orderBy: { id: "desc" },
-      include: { monthlyBoxRun: true, customer: true, message: true, reminder: true, payment: true, lines: {
+      include: { monthlyBoxRun: true, customer: true, message: true, reminder: true, payment: true,
+        outgoingMessages: { where: { kind: "order-confirmation" } }, lines: {
         include: { product: true, allocations: { include: { batch: true }, orderBy: { batch: { bestBefore: "asc" } } } },
       } },
     }),
@@ -34,6 +50,7 @@ export default async function Orders({ searchParams }: {
     needsConfirmation({ ...allocation, confirmedAt: null }),
   );
   const today = todayInBerlin();
+  const confirmations = orders.flatMap(order => order.outgoingMessages);
 
   return (
     <>
@@ -108,7 +125,15 @@ export default async function Orders({ searchParams }: {
                       <a className="text-link" href={`/allergene/${draft.token}`} target="_blank" rel="noreferrer">Privaten Bestätigungslink öffnen</a>
                       {waiting && <>{" · "}<a className="text-link" href={`?auftrag=${draft.id}`}>Status aktualisieren</a></>}
                     </p>}
-                    {!waiting && <OrderForm action={finalizeOrder.bind(null, draft.id, draft.token)} submit={draft.partnerDiscountPercent !== null ? "Auf Rechnung bestätigen" : "Verbindlich bestätigen"} />}
+                    {!waiting && <OrderForm action={finalizeOrder.bind(null, draft.id, draft.token)} submit={draft.partnerDiscountPercent !== null ? "Auf Rechnung bestätigen" : "Verbindlich bestätigen"}>
+                      {draft.partnerDiscountPercent === null && !draft.monthlyBoxRun && process.env.WOLFFS_MESSAGE_CHANNEL === "email" && <>
+                        <label className="field">E-Mail für die Bestellbestätigung
+                          <input name="recipient" type="email" maxLength={254} />
+                          <small>Ohne Adresse wird die Bestellung bestätigt und der Versand als fehlgeschlagen angezeigt.</small>
+                        </label>
+                        <FieldError field="recipient" />
+                      </>}
+                    </OrderForm>}
                     {draft.monthlyBoxRun
                       ? <a className="text-link" href={`/monatsbox#box-${draft.monthlyBoxRun.boxId}`}>Zur Monatsbox</a>
                       : <OrderForm action={discardOrder.bind(null, draft.id, draft.token)} submit="Entwurf verwerfen" secondary />}
@@ -190,8 +215,16 @@ export default async function Orders({ searchParams }: {
               </section>
             )}
             <section className="panel" id="testpostfach">
-              <h2>Lokales Testpostfach</h2>
-              {orders.every(order => !order.message) && <p className="muted">Sobald eine Bestellung bestätigt ist, erscheint hier ihre Nachricht.</p>}
+              <h2>Bestellnachrichten</h2>
+              {confirmations.length === 0 && orders.every(order => !order.message && !order.reminder) &&
+                <p className="muted">Sobald eine Bestellung bestätigt ist, erscheint hier ihre Nachricht.</p>}
+              {confirmations.map(message => (
+                <details key={message.id} open={message.orderId === selected?.id}>
+                  <summary>{message.subject} · {deliveryStatus[message.status]}</summary>
+                  {message.errorCode && <p>{deliveryError[message.errorCode]}</p>}
+                  <pre className="order-message">{message.body}</pre>
+                </details>
+              ))}
               {orders.filter(order => order.reminder).map(order => (
                 <details key={`reminder-${order.id}`} open={order.id === selected?.id}>
                   <summary>Zahlungserinnerung #{order.id}</summary>

@@ -88,6 +88,7 @@ model PrivateOrder {
   total             Int
   lines             OrderLine[]
   message           TestConfirmation?
+  outgoingMessages  OutgoingMessage[]
   partnerDiscountPercent Int?
   partnerPriceApplied Boolean @default(false)
   partnerExceptionReason String?
@@ -130,6 +131,25 @@ model TestConfirmation {
   order     PrivateOrder @relation(fields: [orderId], references: [id])
   body      String
   createdAt DateTime     @default(now())
+}
+
+model OutgoingMessage {
+  id           String       @id @default(uuid())
+  orderId      Int
+  order        PrivateOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  kind         String
+  channel      String
+  gateway      String?
+  recipient    String?
+  subject      String
+  body         String
+  status       String       @default("pending")
+  errorCode    String?
+  attempts     Int          @default(0)
+  nextAttempt  DateTime     @default(now())
+
+  @@unique([orderId, kind])
+  @@index([status, nextAttempt])
 }
 
 model Payment {
