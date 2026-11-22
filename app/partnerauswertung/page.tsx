@@ -50,7 +50,7 @@ export default async function PartnerReportPage({ searchParams }: { searchParams
             <div className="panel"><dt>Offener Betrag</dt><dd>{euros(report.totals.open)}</dd></div>
           </dl>}
 
-          {report && (report.rows.length ? <section className="panel">
+          {report && (report.rows.length ? <section className="panel min-w-0">
             <h2 id="partner-orders">Partnerbestellungen</h2>
             <div className="table-scroll" role="region" tabIndex={0} aria-labelledby="partner-orders">
               <table>

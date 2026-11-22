@@ -1,7 +1,8 @@
 import { reservingOrders } from "../../lib/fulfillment";
 import { requireRole } from "../../lib/access";
 import { randomUUID } from "node:crypto";
-import { ClipboardList, Leaf } from "lucide-react";
+import { ClipboardList } from "lucide-react";
+import { FulfillmentHeader } from "../fulfillment-header";
 import { connection } from "next/server";
 import { db } from "../../lib/db";
 import { inventoryFor, todayInBerlin } from "../../lib/inventory";
@@ -36,15 +37,7 @@ export default async function Orders({ searchParams }: {
 
   return (
     <>
-      <header className="site-header">
-        <div className="shell header-inner">
-          <a className="brand" href="/"><Leaf size={21} aria-hidden="true" /> Wolff’s Naturkosmetik</a>
-          <nav className="main-nav" aria-label="Hauptnavigation">
-            <a href="/">Produktion</a><a href="/bestellungen" aria-current="page">Bestellungen</a>
-            <a href="/abwicklung">Abwicklung</a><a href="/monatsbox">Monatsbox</a><a href="/messe">Messe</a><a href="/partnerauswertung">Partnerauswertung</a>
-          </nav>
-        </div>
-      </header>
+      <FulfillmentHeader active="bestellungen" />
       <main className="shell">
         <div className="page-heading">
           <div><h1>Bestellungen</h1><p>Ware zuteilen, Preise prüfen und Bestellungen bestätigen.</p></div>

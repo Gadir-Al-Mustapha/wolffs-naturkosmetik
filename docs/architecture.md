@@ -1,22 +1,16 @@
 # Architektur
 
-Stand: 18. November 2026
+- **Next.js mit App Router und TypeScript.** In `app/` liegen Seiten, Formulare und serverseitige Aktionen. Fachlogik für Preise, Chargenzuteilung, Zahlungsfristen, Monatsboxen, Messen und die Partnerauswertung liegt in `lib/`.
+- **Tailwind CSS 4.** Die Styles werden über PostCSS eingebunden. Die Gestaltungsrichtung steht in den [Entscheidungen](decisions.md).
+- **SQLite mit Prisma 7.** Die App und die Prisma-Befehle verwenden standardmäßig `prisma/local.db`. Für eine separate Datenbank kann `WOLFFS_DATABASE_URL` gesetzt werden. Neue Änderungen am Datenmodell werden mit `npx prisma migrate dev` als Migration angelegt.
+- **Rollen.** Die Verwaltung und die Packansicht verwenden unterschiedliche lokale Kennwörter. Die Packansicht lädt Auftragsnummer, Produkte, Stückzahlen und konkrete Chargen für packbereite Aufträge. Kundennamen, Adressen, Preise und Zahlungsdetails werden dort nicht geladen.
 
-- **Next.js mit App Router und TypeScript.** Die Seiten liegen in `app/`. So können Oberfläche und serverseitige Abläufe in einem Projekt entwickelt werden. TypeScript prüft die Datenstrukturen zwischen diesen Teilen. [Next.js-Dokumentation](https://nextjs.org/docs/app/getting-started/installation)
-- **Tailwind CSS 4.** Die Styles werden über PostCSS eingebunden. Die Gestaltungsrichtung für F-001 steht in [docs/decisions.md](decisions.md).
-- **SQLite mit Prisma 7.** Die lokale Datenbank liegt in `prisma/local.db` und braucht keinen eigenen Server. Prisma CLI und App greifen über `prisma.config.ts` beziehungsweise `lib/db.ts` darauf zu. Änderungen am Datenmodell werden mit `npx prisma migrate dev` als Migration gespeichert.
+Die [README](../README.md) beschreibt die Einrichtung, den Start und die Anmeldung. `npm test` prüft alle fünf Geschäftsregeln sowie Zahlung und Übergabe, Monatsboxen, Messevorrat und Partnerauswertung. Die Datenbanktests verwenden temporäre SQLite-Dateien. `npm run build` erstellt die Produktionsfassung.
 
-## Lokal starten
+Wenn Turbopack in einer eingeschränkten Prüfumgebung keinen lokalen Port öffnen darf, lässt sich die Produktionsfassung dort mit `npm run build -- --webpack` prüfen.
 
-Mit einer für Prisma 7 unterstützten Node.js-Version, etwa Node.js 22 ab 22.18:
+## Verbleibende Einschränkungen
 
-```sh
-npm ci
-npx prisma migrate dev
-npx prisma generate
-npm run dev
-```
-
-Die Produktionsansicht ist unter <http://localhost:3000> erreichbar. `npm test` prüft die Bestandsregeln und die Allergenangaben je Charge. `npm run build` erstellt die Produktionsfassung.
-
-Vor dem Start die Kennwörter als Umgebungsvariablen setzen. Die Inhaberin nutzt `OWNER_APPROVAL_SECRET` für die Verwaltung, die Packhilfen ein eigenes gemeinsames Kennwort in `PACKING_SECRET` für `/packen`. Der Bereich `/abwicklung` zeigt die bestätigten Bestellungen mit ihren Zahlungs-, Pack- und Übergabeständen. Die Tests für die Bestandsabbuchung verwenden den generierten Prisma-Client und eine eigene temporäre SQLite-Datenbank.
+- **Nachrichten.** Automatische Bestellbestätigungen und Zahlungserinnerungen werden im lokalen Testpostfach abgelegt. Die Zustellung an Kundschaft fehlt. Die SPEC verlangt die automatische Bestätigung und sieht Zahlungserinnerungen vor. Die Wahl des Zustellkanals bleibt offen. Die Fristenprüfung läuft beim Serverstart und danach einmal pro Minute, solange der Server läuft.
+- **DHL.** Die Inhaberin erstellt Etiketten mit Adresse außerhalb der App und markiert sie anschließend als bereit. Die Packhilfe bringt das vorbereitete Etikett an. Die Verwaltung erfasst die Trackingnummer. Die SPEC beschreibt diese Rollenverteilung und verlangt keine Schnittstelle für die Etikettenerstellung.
+- **Offene Fachfragen.** Restposten werden markiert. Die Nachlasshöhe ist offen. Die Monatsbox verwendet derzeit den Festpreis mit 0 € Versandkosten. Ob bei DHL die reguläre Versandregel greifen soll, ist für das Abo offen. Weitere Festlegungen zu Rabatten, Reservierungen, Abo und Messe stehen in den [Entscheidungen](decisions.md).

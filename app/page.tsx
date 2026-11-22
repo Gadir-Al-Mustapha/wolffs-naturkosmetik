@@ -1,6 +1,7 @@
 import { reservingOrders } from "../lib/fulfillment";
 import { requireRole } from "../lib/access";
-import { ArrowDown, Boxes, Leaf, PackagePlus } from "lucide-react";
+import { ArrowDown, Boxes, PackagePlus } from "lucide-react";
+import { FulfillmentHeader } from "./fulfillment-header";
 import { connection } from "next/server";
 import { db } from "../lib/db";
 import { inventoryFor, todayInBerlin } from "../lib/inventory";
@@ -25,12 +26,7 @@ export default async function Home() {
 
   return (
     <>
-      <header className="site-header">
-        <div className="shell header-inner">
-          <a className="brand" href="/"><Leaf size={21} aria-hidden="true" /> Wolff’s Naturkosmetik</a>
-          <nav className="main-nav" aria-label="Hauptnavigation"><a href="/" aria-current="page">Produktion</a><a href="/bestellungen">Bestellungen</a><a href="/abwicklung">Abwicklung</a><a href="/monatsbox">Monatsbox</a><a href="/messe">Messe</a><a href="/partnerauswertung">Partnerauswertung</a></nav>
-        </div>
-      </header>
+      <FulfillmentHeader active="produktion" />
       <main className="shell">
         <div className="page-heading">
           <div>
